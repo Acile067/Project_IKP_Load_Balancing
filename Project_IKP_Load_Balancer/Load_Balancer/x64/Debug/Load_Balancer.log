@@ -1,0 +1,4 @@
+﻿  Load_Balancer.cpp
+C:\Users\acile\Desktop\Project_IKP_Load_Balancer\Project_IKP_Load_Balancer\Load_Balancer\Load_Balancer.cpp(48,27): warning C4244: 'initializing': conversion from 'SOCKET' to 'int', possible loss of data
+C:\Users\acile\Desktop\Project_IKP_Load_Balancer\Project_IKP_Load_Balancer\Load_Balancer\Load_Balancer.cpp(98,21): warning C4244: '=': conversion from 'SOCKET' to 'int', possible loss of data
+  Load_Balancer.vcxproj -> C:\Users\acile\Desktop\Project_IKP_Load_Balancer\Project_IKP_Load_Balancer\x64\Debug\Load_Balancer.exe

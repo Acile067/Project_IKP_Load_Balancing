@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <winsock.h>
+#include "../Common/hashtable.h"
 using namespace std;
 #define PORT 5059
 
@@ -11,6 +12,8 @@ struct sockaddr_in srv;
 fd_set fr, fw, fe;  //Read,Write,Exception
 int nMaxFd;
 int nArrClient[5];                   //TODO HashMap
+
+HASH_TABLE* table;
 
 void ProcessNewMessage(int nClientSocket) 
 {
@@ -80,6 +83,19 @@ void ProcessTheNewRequest()
 
 int main()
 {
+    table = init_hash_table();
+    if (table != NULL)
+    {
+        cout << "GGGGGGGGGGG" << endl;
+    }
+
+    if (add_table_item(table, "klijenti", 111))
+    {
+
+    }
+
+    print_hash_table(table);
+
     int nRet = 0;
     //Init WSA 
     WSADATA ws;

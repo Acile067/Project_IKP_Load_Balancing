@@ -54,6 +54,8 @@ int main()
     }
     else
     {
+        send(nWorkerSocket, "WORKER", 6, 0);
+
         cout << endl << "WORKER Connect Success";
         //Server accepted
         char buffer[255] = { 0, };

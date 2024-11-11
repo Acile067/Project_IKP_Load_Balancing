@@ -1,4 +1,4 @@
-// Load_Balancer.cpp : This file contains the 'main' function. Program execution begins and ends there.
+﻿// Load_Balancer.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
 
 #include <iostream>
@@ -11,27 +11,34 @@ int nSocket;
 struct sockaddr_in srv;
 fd_set fr, fw, fe;  //Read,Write,Exception
 int nMaxFd;
-int nArrClient[5];                   //TODO HashMap
 
-HASH_TABLE* table;
+
+HASH_TABLE* nClientWorkerSocketTable;
 
 void ProcessNewMessage(int nClientSocket) 
 {
     cout << endl << "Procesing message from client: " << nClientSocket;
     char buffer[256 + 1] = { 0, };
     int nRet = recv(nClientSocket, buffer, 256, 0);
-    if (nRet < 0)
+    if (nRet <= 0)
     {
-        cout << endl << "Something bad happen. Closing Socket";
-        closesocket(nClientSocket);
-        for (int nIndex = 0; nIndex < 5; nIndex++)              //TODO HashMap
-        {
-            if (nArrClient[nIndex] == nClientSocket)
-            {
-                nArrClient[nIndex] = 0;
-                break;
+        cout << endl << "Something bad happen. Closing Socket " << nClientSocket;
+        //closesocket(nClientSocket);
+        LIST* clients = get_table_item(nClientWorkerSocketTable, "clients");
+        if (clients != NULL && clients->count > 0) {
+            LIST_ITEM* client = clients->head;
+            int nIndexCnt = 0;
+            while (client != NULL) {
+                if (client->data == nClientSocket) {
+                    if (remove_from_list(clients, nIndexCnt)) {
+                        print_hash_table(nClientWorkerSocketTable);
+                    }
+                    break; // Moze se prekinuti petlja nakon brisanja
+                }
+                nIndexCnt++;
+                client = client->next;
             }
-        }
+        }      
     }
     else
     {
@@ -51,31 +58,48 @@ void ProcessTheNewRequest()
         int nClientSocket = accept(nSocket, NULL, &nLen);
         if (nClientSocket > 0)
         {
-            //Put it into client fd_set             TODO HashMap
-            int nIndex = 0;
-            for (nIndex = 0; nIndex < 5; nIndex++)
+            //Put it into client fd_set
+            char idBuffer[256] = { 0 };
+            recv(nClientSocket, idBuffer, 256, 0);  //rcv client_hello or worker_hello
+
+            if (strcmp(idBuffer, "CLIENT") == 0)
             {
-                if (nArrClient[nIndex] == 0) 
-                {
-                    nArrClient[nIndex] = nClientSocket;
-                    send(nClientSocket, "SERVER: You are connected", 26, 0);
-                    break;
-                }
+                add_table_item(nClientWorkerSocketTable, "clients", nClientSocket);
+                cout << "Added a client to the table with socket: " << nClientSocket << endl;
+                send(nClientSocket, "SERVER: You are connected as CLIENT", 36, 0);
+                print_hash_table(nClientWorkerSocketTable);
             }
-            if (nIndex == 5)
+            else if (strcmp(idBuffer, "WORKER") == 0)
             {
-                cout << endl << "No More Space For New Connection";
+                add_table_item(nClientWorkerSocketTable, "workers", nClientSocket);
+                cout << "Added a worker to the table with socket: " << nClientSocket << endl;
+                send(nClientSocket, "SERVER: You are connected as WORKER", 36, 0);
+                print_hash_table(nClientWorkerSocketTable);
+            }
+            else
+            {
+                cout << "Unknown connection type" << endl;
+                closesocket(nClientSocket);
             }
         }
     }
     else
     {
-        for (int nIndex = 0; nIndex < 5; nIndex++)          //TODO HashMap
-        {
-            if (FD_ISSET(nArrClient[nIndex], &fr))
-            {
-                //New Message From Client
-                ProcessNewMessage(nArrClient[nIndex]);
+
+        LIST* clients = get_table_item(nClientWorkerSocketTable, "clients");
+        if (clients != NULL && clients->count > 0) {
+            LIST_ITEM* client = clients->head;
+            while (client != NULL) {
+                /*if (client->data == NULL) {                                               <---Ovde baca gresku kada klijent zatvori konekciju
+                    // Ako je client->data NULL, preskočite dalje                           Ne moras da otkomentarises
+                    client = client->next;
+                    continue;
+                }*/
+                SOCKET nClientMSGSocket = client->data;
+                if (FD_ISSET(nClientMSGSocket, &fr)) {
+                    ProcessNewMessage(nClientMSGSocket);
+                }
+                client = client->next;
             }
         }
     }
@@ -83,18 +107,19 @@ void ProcessTheNewRequest()
 
 int main()
 {
-    table = init_hash_table();
-    if (table != NULL)
-    {
-        cout << "GGGGGGGGGGG" << endl;
-    }
-
-    if (add_table_item(table, "klijenti", 111))
+    nClientWorkerSocketTable = init_hash_table();
+    
+    if (add_list_table(nClientWorkerSocketTable, "clients"))
     {
 
     }
+    if (add_list_table(nClientWorkerSocketTable, "workers"))
+    {
 
-    print_hash_table(table);
+    }
+    
+
+    print_hash_table(nClientWorkerSocketTable);
 
     int nRet = 0;
     //Init WSA 
@@ -172,7 +197,7 @@ int main()
     }
 
     //Listen for clients requests
-    nRet = listen(nSocket, 10); //10 requests
+    nRet = listen(nSocket, 20); //20 requests
     if (nRet < 0)
     {
         cout << endl << "Listen Failed";
@@ -198,6 +223,30 @@ int main()
         FD_SET(nSocket, &fr);
         FD_SET(nSocket, &fe);
 
+        LIST* clients = get_table_item(nClientWorkerSocketTable, "clients");
+        if (clients != NULL && clients->count > 0) {
+            LIST_ITEM* client = clients->head;
+            while (client != NULL) {
+                SOCKET nClientMSGSocket = client->data;
+                FD_SET(nClientMSGSocket, &fr);
+                FD_SET(nClientMSGSocket, &fe);
+                client = client->next;
+            }
+        }
+
+        LIST* workers = get_table_item(nClientWorkerSocketTable, "workers");
+        if (workers != NULL && workers->count > 0) {
+            LIST_ITEM* worker = workers->head;
+            while (worker != NULL) {
+                SOCKET nWorkersSocket = worker->data;
+                FD_SET(nWorkersSocket, &fr);
+                FD_SET(nWorkersSocket, &fe);
+                worker = worker->next;
+            }
+        }
+
+
+        /*
         for (int nIndex = 0; nIndex < 5; nIndex++)           //TODO HashMap za ovo 5
         {
             if (nArrClient[nIndex] != 0)
@@ -205,7 +254,7 @@ int main()
                 FD_SET(nArrClient[nIndex], &fr);
                 FD_SET(nArrClient[nIndex], &fe);
             }
-        }
+        }*/
         //cout << endl << "Befor select call:" << fr.fd_count;
 
         nRet = select(nMaxFd + 1, &fr, &fw, &fe, &tv);

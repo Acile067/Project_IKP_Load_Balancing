@@ -54,6 +54,8 @@ int main()
     }
     else
     {
+        send(nClientSocket, "CLIENT", 6, 0);
+
         cout << endl << "CLIENT Connect Success";
         //Server accepted
         char buffer[255] = { 0, };
@@ -90,5 +92,7 @@ int main()
                 break;
             }
         }
+
+        closesocket(nClientSocket);
     }
 }

@@ -154,6 +154,48 @@ bool add_table_item(HASH_TABLE* table, const char* key, SOCKET sock)
     return true;
 }
 
+//// Dodavanje msg u tabelu
+//bool add_table_item_msg(HASH_TABLE* table, const char* key, char* msg)
+//{
+//    if (table == NULL)
+//    {
+//        cout << "add_table_item() failed: table is NULL" << endl;
+//        return false;
+//    }
+//
+//    if (key == NULL)
+//    {
+//        cout << "add_table_item() failed: key is NULL" << endl;
+//        return false;
+//    }
+//
+//    if (strlen(key) > MAX_KEY_LEN)
+//    {
+//        cout << "add_table_item() failed: key is too long" << endl;
+//        return false;
+//    }
+//
+//    EnterCriticalSection(&table->cs);
+//
+//    int index = djb2hash(key);
+//    if (index == -1)
+//    {
+//        cout << "add_table_item() failed: djb2hash() failed" << endl;
+//        LeaveCriticalSection(&table->cs);
+//        return false;
+//    }
+//    HASH_ITEM* item = &table->items[index];
+//    if (item->list == NULL) {
+//        cout << "add_table_item() failed: list for key is NULL" << endl;
+//    }
+//
+//    LIST_ITEM_MSG newItem = { msg, NULL };
+//    add_list_front(item->list, newItem);
+//
+//    LeaveCriticalSection(&table->cs);
+//    return true;
+//}
+
 // Dohvatanje stavke iz djb2hash tabele
 LIST* get_table_item(HASH_TABLE* table, const char* key)
 {
@@ -285,48 +327,38 @@ bool remove_table_item(HASH_TABLE* table, const char* key)
 // Oslobađanje djb2hash tabele
 bool free_hash_table(HASH_TABLE** table)
 {
-    if (table == NULL)
+    if (table == NULL || *table == NULL)
     {
-        cout << "free_hash_table(): table is NULL" << endl;
+        cout << "free_hash_table() failed: table is NULL" << endl;
         return true;
     }
 
-    if (*table == NULL)
-    {
-        cout << "free_hash_table(): table is NULL" << endl;
-        return true;
-    }
-    HASH_TABLE* temp = *table;
-    if (temp->items == NULL)
-    {
-        cout << "free_hash_table(): table->items is NULL" << endl;
-        return true;
-    }
-
-    EnterCriticalSection(&temp->cs);
+    EnterCriticalSection(&(*table)->cs);
     for (int i = 0; i < TABLE_SIZE; i++)
     {
-        if (temp->items[i].list != NULL)
+        if ((*table)->items[i].list != NULL)
         {
-            if (!free_list(&temp->items[i].list))
+            if (!free_list(&(*table)->items[i].list))
             {
-                cout << "free_hash_table(): free_list() failed" << endl;
-                LeaveCriticalSection(&temp->cs);
+                cout << "free_hash_table() failed: could not free list at index " << i << endl;
+                LeaveCriticalSection(&(*table)->cs);
                 return false;
             }
         }
-        if (temp->items[i].key != NULL)
+
+        if ((*table)->items[i].key != NULL)
         {
-            free(temp->items[i].key);
-            temp->items[i].key = NULL;
+            free((*table)->items[i].key);
+            (*table)->items[i].key = NULL;
         }
     }
-    LeaveCriticalSection(&temp->cs);
-    DeleteCriticalSection(&temp->cs);
+    LeaveCriticalSection(&(*table)->cs);
 
-    free(temp->items);
-    temp->items = NULL;
-    free(temp);
+    DeleteCriticalSection(&(*table)->cs);
+    free((*table)->items);
+    (*table)->items = NULL;
+
+    free(*table);
     *table = NULL;
 
     return true;

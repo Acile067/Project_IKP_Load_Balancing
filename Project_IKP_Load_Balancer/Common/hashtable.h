@@ -43,6 +43,15 @@ unsigned int djb2hash(const char* key);
 bool add_table_item(HASH_TABLE* table, const char* key, SOCKET sock);
 
 /// <summary>
+/// Add item to hash table
+/// </summary>
+/// <param name="table"> - source table</param>
+/// <param name="key"> - table item key</param>
+/// <param name="msg"> - msg to add</param>
+/// <returns>True if addition is successful, otherwise false</returns>
+//bool add_table_item_msg(HASH_TABLE* table, const char* key, char* msg);
+
+/// <summary>
 /// Add list to hash table
 /// </summary>
 /// <param name="table"> - source table</param>

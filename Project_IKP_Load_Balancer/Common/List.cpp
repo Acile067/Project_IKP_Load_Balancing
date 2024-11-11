@@ -63,6 +63,43 @@ void add_list_front(LIST* list, LIST_ITEM data)
     LeaveCriticalSection(&list->cs);
 }
 
+//// Dodavanje elementa stringa na početak liste
+//void add_list_front_msg(LIST* list, LIST_ITEM_MSG data)
+//{
+//    if (list == NULL)
+//    {
+//        cout << "add_list_front() failed: list is NULL" << endl;
+//        return;
+//    }
+//
+//    EnterCriticalSection(&list->cs);
+//
+//    LIST_ITEM* item = (LIST_ITEM*)malloc(sizeof(LIST_ITEM));
+//    if (item == NULL)
+//    {
+//        cout << "add_list_front() failed: out of memory" << endl;
+//        LeaveCriticalSection(&list->cs);
+//        return;
+//    }
+//
+//    item->data = data.data;
+//    item->next = NULL;
+//
+//    if (list->count == 0)
+//    {
+//        list->head = item;
+//        list->tail = item;
+//    }
+//    else
+//    {
+//        item->next = list->head;
+//        list->head = item;
+//    }
+//
+//    list->count++;
+//    LeaveCriticalSection(&list->cs);
+//}
+
 // Dodavanje elementa na kraj liste
 void add_list_back(LIST* list, LIST_ITEM data)
 {
@@ -124,13 +161,12 @@ LIST_ITEM* get_list_item(LIST* list, int index)
     return item;
 }
 
-// Uklanjanje stavke sa određenog indeksa
 bool remove_from_list(LIST* list, int index)
 {
     if (list == NULL)
     {
         cout << "remove_from_list(): list is NULL" << endl;
-        return true;
+        return false;
     }
 
     if (index < 0 || index >= list->count)
@@ -143,12 +179,22 @@ bool remove_from_list(LIST* list, int index)
 
     LIST_ITEM* item = list->head;
     LIST_ITEM* prev = NULL;
+
+    // Find the element at the specified index
     for (int i = 0; i < index; i++)
     {
         prev = item;
         item = item->next;
     }
 
+    if (item == NULL)
+    {
+        cout << "remove_from_list() failed: item is NULL" << endl;
+        LeaveCriticalSection(&list->cs);
+        return false;
+    }
+
+    // Link previous element to the next, if applicable
     if (prev == NULL)
     {
         list->head = item->next;
@@ -163,68 +209,61 @@ bool remove_from_list(LIST* list, int index)
         list->tail = prev;
     }
 
-    closesocket(item->data);  // Korišćenje closesocket za socket
-    free(item);
-    item = NULL;
-    list->count--;
+    // Ensure socket is valid before closing
+    if (item->data != INVALID_SOCKET)
+    {
+        closesocket(item->data);
+        item->data = INVALID_SOCKET;  // Mark as invalid to avoid reuse
+    }
 
+    free(item);
+    list->count--;
     LeaveCriticalSection(&list->cs);
+
     return true;
 }
+
 
 // Čišćenje liste
 bool clear_list(LIST* list)
 {
-    if (list != NULL)
+    if (list == NULL)
     {
-        EnterCriticalSection(&list->cs);
-        while (list->count > 0)
-        {
-            if (!remove_from_list(list, 0))
-            {
-                cout << "[WARN] clear_list() failed: failed to remove element from the list" << endl;
-            }
-        }
-        LeaveCriticalSection(&list->cs);
+        cout << "clear_list() failed: list is NULL" << endl;
+        return false;
     }
 
+    EnterCriticalSection(&list->cs);
+
+    while (list->count > 0)
+    {
+        if (!remove_from_list(list, 0))
+        {
+            cout << "[WARN] clear_list() failed to remove an element from the list" << endl;
+        }
+    }
+
+    LeaveCriticalSection(&list->cs);
     return true;
 }
 
 // Oslobađanje resursa liste
 bool free_list(LIST** list)
 {
-    if (list == NULL)
+    if (list == NULL || *list == NULL)
     {
+        cout << "free_list() failed: list is NULL" << endl;
         return true;
     }
 
-    if (*list == NULL)
-    {
-        return true;
-    }
-
-    if ((*list)->count != 0)
-    {
-        EnterCriticalSection(&(*list)->cs);
-        while ((*list)->head != (*list)->tail)
-        {
-            LIST_ITEM* item = (*list)->head;
-            (*list)->head = item->next;
-            shutdown(item->data, 2);        // Isključi socket pre nego što ga zatvoriš
-            closesocket(item->data);        // Zatvori socket
-            free(item);
-            (*list)->count--;
-        }
-        free((*list)->head);
-        (*list)->head = NULL;
-        (*list)->tail = NULL;
-        (*list)->count = 0;
-        LeaveCriticalSection(&(*list)->cs);
-    }
+    EnterCriticalSection(&(*list)->cs);
+    clear_list(*list);
 
     DeleteCriticalSection(&(*list)->cs);
+
     free(*list);
+    *list = NULL;  // Set pointer to NULL after freeing to avoid dangling pointer
+
     return true;
 }
 

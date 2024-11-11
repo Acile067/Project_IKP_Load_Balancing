@@ -19,11 +19,13 @@ void ProcessNewMessage(int nClientSocket)
 {
     cout << endl << "Procesing message from client: " << nClientSocket;
     char buffer[256 + 1] = { 0, };
+
+    // Proveri da li je socket još uvek otvoren pre nego što pozoveš recv
     int nRet = recv(nClientSocket, buffer, 256, 0);
-    if (nRet <= 0)
-    {
+    if (nRet <= 0) {
+        // Ako je socket zatvoren ili došlo do greške
         cout << endl << "Something bad happen. Closing Socket " << nClientSocket;
-        //closesocket(nClientSocket);
+
         LIST* clients = get_table_item(nClientWorkerSocketTable, "clients");
         if (clients != NULL && clients->count > 0) {
             LIST_ITEM* client = clients->head;
@@ -38,69 +40,86 @@ void ProcessNewMessage(int nClientSocket)
                 nIndexCnt++;
                 client = client->next;
             }
-        }      
+        }
     }
-    else
-    {
+    else {
         cout << endl << "CLIENT SAY: " << buffer;
         send(nClientSocket, "SERVER: Got message!", 21, 0);
         cout << endl << "******************";
     }
-
 }
 
 void ProcessTheNewRequest()
 {
-    //New Connection Request
-    if (FD_ISSET(nSocket, &fr))
-    {
+    // New Connection Request
+    if (FD_ISSET(nSocket, &fr)) {
         int nLen = sizeof(struct sockaddr);
         int nClientSocket = accept(nSocket, NULL, &nLen);
-        if (nClientSocket > 0)
-        {
-            //Put it into client fd_set
+        if (nClientSocket > 0) {
             char idBuffer[256] = { 0 };
-            recv(nClientSocket, idBuffer, 256, 0);  //rcv client_hello or worker_hello
+            recv(nClientSocket, idBuffer, 256, 0);  // rcv client_hello or worker_hello
 
-            if (strcmp(idBuffer, "CLIENT") == 0)
-            {
+            if (strcmp(idBuffer, "CLIENT") == 0) {
                 add_table_item(nClientWorkerSocketTable, "clients", nClientSocket);
                 cout << "Added a client to the table with socket: " << nClientSocket << endl;
                 send(nClientSocket, "SERVER: You are connected as CLIENT", 36, 0);
                 print_hash_table(nClientWorkerSocketTable);
             }
-            else if (strcmp(idBuffer, "WORKER") == 0)
-            {
+            else if (strcmp(idBuffer, "WORKER") == 0) {
                 add_table_item(nClientWorkerSocketTable, "workers", nClientSocket);
                 cout << "Added a worker to the table with socket: " << nClientSocket << endl;
                 send(nClientSocket, "SERVER: You are connected as WORKER", 36, 0);
                 print_hash_table(nClientWorkerSocketTable);
             }
-            else
-            {
+            else {
                 cout << "Unknown connection type" << endl;
                 closesocket(nClientSocket);
             }
         }
     }
-    else
-    {
 
-        LIST* clients = get_table_item(nClientWorkerSocketTable, "clients");
-        if (clients != NULL && clients->count > 0) {
-            LIST_ITEM* client = clients->head;
-            while (client != NULL) {
-                /*if (client->data == NULL) {                                               <---Ovde baca gresku kada klijent zatvori konekciju
-                    // Ako je client->data NULL, preskočite dalje                           Ne moras da otkomentarises
-                    client = client->next;
-                    continue;
-                }*/
-                SOCKET nClientMSGSocket = client->data;
-                if (FD_ISSET(nClientMSGSocket, &fr)) {
-                    ProcessNewMessage(nClientMSGSocket);
-                }
-                client = client->next;
+    // Process all client sockets
+    LIST* clients = get_table_item(nClientWorkerSocketTable, "clients");
+    if (clients != NULL && clients->count > 0) {
+        LIST_ITEM* client = clients->head;
+        LIST_ITEM* prev = NULL;  // Keep track of the previous node
+        int index = 0;
+
+        while (client != NULL) {
+
+            if (client == NULL || client == reinterpret_cast<LIST_ITEM*>(0xdddddddddddddddd)) {
+                cout << "Detected invalid client pointer." << endl;
+                break;
             }
+
+            SOCKET nClientMSGSocket = client->data;
+
+            // If socket is invalid, remove the client from the list
+            if (nClientMSGSocket == INVALID_SOCKET) {
+                cout << "Invalid socket detected. Removing client." << endl;
+
+                // Remove the client node safely
+                remove_from_list(clients, index);
+
+                // Adjust pointers for the next iteration
+                if (prev == NULL) {  // Removed head
+                    client = clients->head;
+                }
+                else {
+                    client = prev->next;
+                }
+                continue;  // Skip the rest and re-evaluate the new node
+            }
+
+            // Check if the socket is set in FD_SET and process it
+            if (FD_ISSET(nClientMSGSocket, &fr)) {
+                ProcessNewMessage(nClientMSGSocket);
+            }
+
+            // Move to the next client in the list
+            prev = client;
+            client = client->next;
+            index++;
         }
     }
 }
@@ -226,6 +245,7 @@ int main()
         LIST* clients = get_table_item(nClientWorkerSocketTable, "clients");
         if (clients != NULL && clients->count > 0) {
             LIST_ITEM* client = clients->head;
+            //cout << endl << endl << endl << client << endl << endl << endl;
             while (client != NULL) {
                 SOCKET nClientMSGSocket = client->data;
                 FD_SET(nClientMSGSocket, &fr);
@@ -260,6 +280,7 @@ int main()
         nRet = select(nMaxFd + 1, &fr, &fw, &fe, &tv);
         if (nRet > 0)
         {
+            cout << "NRET" << endl << nRet << endl << "NRET" << endl;
             //someone connected
             cout << endl << "Someone connected!";       //comment later
             //Process request
@@ -281,7 +302,7 @@ int main()
         }
 
         //cout << endl << "After select call:" << fr.fd_count;
-        //Sleep(1000);
+        //Sleep(10000);
     }
     
 }

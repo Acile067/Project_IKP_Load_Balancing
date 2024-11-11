@@ -13,6 +13,12 @@ typedef struct _LIST_ITEM
     struct _LIST_ITEM* next;
 } LIST_ITEM;
 
+//typedef struct _LIST_ITEM_MSG
+//{
+//    char* data;  // string tip ostaje isti
+//    struct _LIST_ITEM_MSG* next;
+//} LIST_ITEM_MSG;
+
 typedef struct _LIST
 {
     LIST_ITEM* head;
@@ -33,6 +39,7 @@ LIST* init_list();
 /// <param name="list"> - source list</param>
 /// <param name="data"> - list item to be added</param>
 void add_list_front(LIST* list, LIST_ITEM data);
+///void add_list_front_msg(LIST* list, LIST_ITEM_MSG data);
 
 /// <summary>
 /// Add item to back of the list

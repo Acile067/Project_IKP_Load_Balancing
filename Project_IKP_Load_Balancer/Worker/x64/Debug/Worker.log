@@ -1,1 +1,3 @@
-﻿  Worker.vcxproj -> D:\GitLab Repo\Project_IKP_Load_Balancing\Project_IKP_Load_Balancer\x64\Debug\Worker.exe
+﻿  Worker.cpp
+D:\GitLab Repo\Project_IKP_Load_Balancing\Project_IKP_Load_Balancer\Worker\Worker.cpp(29,27): warning C4244: '=': conversion from 'SOCKET' to 'int', possible loss of data
+  Worker.vcxproj -> D:\GitLab Repo\Project_IKP_Load_Balancing\Project_IKP_Load_Balancer\x64\Debug\Worker.exe

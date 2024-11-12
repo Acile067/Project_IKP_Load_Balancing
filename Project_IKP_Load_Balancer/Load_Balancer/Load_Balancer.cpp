@@ -14,6 +14,7 @@ int nMaxFd;
 
 
 HASH_TABLE* nClientWorkerSocketTable;
+HASH_TABLE_MSG* nClientWorkerMSGTable;
 
 void ProcessNewMessage(int nClientSocket) 
 {
@@ -128,17 +129,22 @@ int main()
 {
     nClientWorkerSocketTable = init_hash_table();
     
-    if (add_list_table(nClientWorkerSocketTable, "clients"))
-    {
+    if (add_list_table(nClientWorkerSocketTable, "clients")) {}
+    if (add_list_table(nClientWorkerSocketTable, "workers")) {}
 
-    }
-    if (add_list_table(nClientWorkerSocketTable, "workers"))
-    {
-
-    }
-    
+    //if (add_table_item(nClientWorkerSocketTable, "clients", 111)) {}
 
     print_hash_table(nClientWorkerSocketTable);
+   
+
+
+    nClientWorkerMSGTable = init_hash_table_msg();
+
+    if (add_list_table_msg(nClientWorkerMSGTable, "client1")) {}
+    if (add_table_item_msg(nClientWorkerMSGTable, "client1", "message1")) {}
+    if (add_table_item_msg(nClientWorkerMSGTable, "client1", "message2")) {}
+
+    print_hash_table_msg(nClientWorkerMSGTable);
 
     int nRet = 0;
     //Init WSA 
@@ -245,7 +251,6 @@ int main()
         LIST* clients = get_table_item(nClientWorkerSocketTable, "clients");
         if (clients != NULL && clients->count > 0) {
             LIST_ITEM* client = clients->head;
-            //cout << endl << endl << endl << client << endl << endl << endl;
             while (client != NULL) {
                 SOCKET nClientMSGSocket = client->data;
                 FD_SET(nClientMSGSocket, &fr);

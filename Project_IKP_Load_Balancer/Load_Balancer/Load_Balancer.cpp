@@ -285,7 +285,7 @@ int main()
         nRet = select(nMaxFd + 1, &fr, &fw, &fe, &tv);
         if (nRet > 0)
         {
-            cout << "NRET" << endl << nRet << endl << "NRET" << endl;
+            //cout << "NRET" << endl << nRet << endl << "NRET" << endl;
             //someone connected
             cout << endl << "Someone connected!";       //comment later
             //Process request

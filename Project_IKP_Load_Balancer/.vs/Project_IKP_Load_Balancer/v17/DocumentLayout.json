@@ -58,8 +58,7 @@
               "RelativeToolTip": "Common\\list.h",
               "ViewState": "AgIAAFEAAAAAAAAAAAAqwGEAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2024-11-11T16:26:15.198Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-11-11T16:26:15.198Z"
             },
             {
               "$type": "Document",
@@ -71,8 +70,7 @@
               "RelativeToolTip": "Common\\List.cpp",
               "ViewState": "AgIAALwBAAAAAAAAAAAqwMwBAAAVAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2024-11-11T11:26:49.323Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-11-11T11:26:49.323Z"
             },
             {
               "$type": "Document",
@@ -84,8 +82,7 @@
               "RelativeToolTip": "Common\\hashtable.h",
               "ViewState": "AgIAAFcAAAAAAAAAAAAqwGoAAABFAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2024-11-11T16:23:24.105Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-11-11T16:23:24.105Z"
             },
             {
               "$type": "Document",
@@ -97,8 +94,7 @@
               "RelativeToolTip": "Common\\Hashtable.cpp",
               "ViewState": "AgIAAHsCAAAAAAAAAAAqwJECAAAaAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2024-11-11T11:42:02.757Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-11-11T11:42:02.757Z"
             },
             {
               "$type": "Document",
@@ -110,8 +106,7 @@
               "RelativeToolTip": "Common\\Common.cpp",
               "ViewState": "AgIAABMAAAAAAAAAAAAwwDIAAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2024-11-11T11:52:34.678Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-11-11T11:52:34.678Z"
             },
             {
               "$type": "Document",
@@ -123,8 +118,7 @@
               "RelativeToolTip": "Client\\Client.cpp",
               "ViewState": "AgIAABgAAAAAAAAAAAAAACcAAAAPAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2024-11-11T11:18:38.612Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-11-11T11:18:38.612Z"
             },
             {
               "$type": "Document",
@@ -134,7 +128,7 @@
               "RelativeDocumentMoniker": "Load_Balancer\\Load_Balancer.cpp",
               "ToolTip": "D:\\GitLab Repo\\Project_IKP_Load_Balancing\\Project_IKP_Load_Balancer\\Load_Balancer\\Load_Balancer.cpp",
               "RelativeToolTip": "Load_Balancer\\Load_Balancer.cpp",
-              "ViewState": "AgIAAHoAAAAAAAAAAAAqwIIAAAAEAAAAAAAAAA==",
+              "ViewState": "AgIAAA0BAAAAAAAAAAAqwB0BAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
               "WhenOpened": "2024-11-10T12:09:32.897Z",
               "EditorCaption": ""

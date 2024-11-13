@@ -7,6 +7,10 @@
       "RelativeMoniker": "D:0:0:{AC000B22-D96A-456F-A806-2FFD11EF6D19}|Load_Balancer\\Load_Balancer.vcxproj|solutionrelative:Load_Balancer\\Load_Balancer.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
+      "AbsoluteMoniker": "D:0:0:{B6D33D46-823F-4002-B3EB-2E828469C837}|Client\\Client.vcxproj|D:\\GitLab Repo\\Project_IKP_Load_Balancing\\Project_IKP_Load_Balancer\\Client\\Client.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{B6D33D46-823F-4002-B3EB-2E828469C837}|Client\\Client.vcxproj|solutionrelative:Client\\Client.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{BB58EED4-EA67-44C8-A4D8-547C1B56F491}|Common\\Common.vcxproj|D:\\GitLab Repo\\Project_IKP_Load_Balancing\\Project_IKP_Load_Balancer\\Common\\List.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
       "RelativeMoniker": "D:0:0:{BB58EED4-EA67-44C8-A4D8-547C1B56F491}|Common\\Common.vcxproj|solutionrelative:Common\\List.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
@@ -25,10 +29,6 @@
     {
       "AbsoluteMoniker": "D:0:0:{BB58EED4-EA67-44C8-A4D8-547C1B56F491}|Common\\Common.vcxproj|D:\\GitLab Repo\\Project_IKP_Load_Balancing\\Project_IKP_Load_Balancer\\Common\\Common.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
       "RelativeMoniker": "D:0:0:{BB58EED4-EA67-44C8-A4D8-547C1B56F491}|Common\\Common.vcxproj|solutionrelative:Common\\Common.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{B6D33D46-823F-4002-B3EB-2E828469C837}|Client\\Client.vcxproj|D:\\GitLab Repo\\Project_IKP_Load_Balancing\\Project_IKP_Load_Balancer\\Client\\Client.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{B6D33D46-823F-4002-B3EB-2E828469C837}|Client\\Client.vcxproj|solutionrelative:Client\\Client.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     }
   ],
   "DocumentGroupContainers": [
@@ -50,7 +50,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 4,
               "Title": "list.h",
               "DocumentMoniker": "D:\\GitLab Repo\\Project_IKP_Load_Balancing\\Project_IKP_Load_Balancer\\Common\\list.h",
               "RelativeDocumentMoniker": "Common\\list.h",
@@ -62,7 +62,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 2,
               "Title": "List.cpp",
               "DocumentMoniker": "D:\\GitLab Repo\\Project_IKP_Load_Balancing\\Project_IKP_Load_Balancer\\Common\\List.cpp",
               "RelativeDocumentMoniker": "Common\\List.cpp",
@@ -74,7 +74,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
+              "DocumentIndex": 5,
               "Title": "hashtable.h",
               "DocumentMoniker": "D:\\GitLab Repo\\Project_IKP_Load_Balancing\\Project_IKP_Load_Balancer\\Common\\hashtable.h",
               "RelativeDocumentMoniker": "Common\\hashtable.h",
@@ -86,7 +86,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 3,
               "Title": "Hashtable.cpp",
               "DocumentMoniker": "D:\\GitLab Repo\\Project_IKP_Load_Balancing\\Project_IKP_Load_Balancer\\Common\\Hashtable.cpp",
               "RelativeDocumentMoniker": "Common\\Hashtable.cpp",
@@ -98,7 +98,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 5,
+              "DocumentIndex": 6,
               "Title": "Common.cpp",
               "DocumentMoniker": "D:\\GitLab Repo\\Project_IKP_Load_Balancing\\Project_IKP_Load_Balancer\\Common\\Common.cpp",
               "RelativeDocumentMoniker": "Common\\Common.cpp",
@@ -110,13 +110,13 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 6,
+              "DocumentIndex": 1,
               "Title": "Client.cpp",
               "DocumentMoniker": "D:\\GitLab Repo\\Project_IKP_Load_Balancing\\Project_IKP_Load_Balancer\\Client\\Client.cpp",
               "RelativeDocumentMoniker": "Client\\Client.cpp",
               "ToolTip": "D:\\GitLab Repo\\Project_IKP_Load_Balancing\\Project_IKP_Load_Balancer\\Client\\Client.cpp",
               "RelativeToolTip": "Client\\Client.cpp",
-              "ViewState": "AgIAABgAAAAAAAAAAAAAACcAAAAPAAAAAAAAAA==",
+              "ViewState": "AgIAAGMAAAAAAAAAAAAAACcAAAAPAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
               "WhenOpened": "2024-11-11T11:18:38.612Z"
             },
@@ -128,7 +128,7 @@
               "RelativeDocumentMoniker": "Load_Balancer\\Load_Balancer.cpp",
               "ToolTip": "D:\\GitLab Repo\\Project_IKP_Load_Balancing\\Project_IKP_Load_Balancer\\Load_Balancer\\Load_Balancer.cpp",
               "RelativeToolTip": "Load_Balancer\\Load_Balancer.cpp",
-              "ViewState": "AgIAAA0BAAAAAAAAAAAqwB0BAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAACABAAAAAAAAAAAAAB0BAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
               "WhenOpened": "2024-11-10T12:09:32.897Z",
               "EditorCaption": ""

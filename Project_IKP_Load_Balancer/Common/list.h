@@ -9,15 +9,9 @@
 
 typedef struct _LIST_ITEM
 {
-    SOCKET data;  // SOCKET tip ostaje isti
+    SOCKET data;  // SOCKET tip
     struct _LIST_ITEM* next;
 } LIST_ITEM;
-
-//typedef struct _LIST_ITEM_MSG
-//{
-//    char* data;  // string tip ostaje isti
-//    struct _LIST_ITEM_MSG* next;
-//} LIST_ITEM_MSG;
 
 typedef struct _LIST
 {
@@ -27,11 +21,26 @@ typedef struct _LIST
     int count;
 } LIST;
 
+typedef struct _LIST_ITEM_MSG
+{
+    const char* data;  // char* tip
+    struct _LIST_ITEM_MSG* next;
+} LIST_ITEM_MSG;
+
+typedef struct _LIST_MSG
+{
+    _LIST_ITEM_MSG* head;
+    _LIST_ITEM_MSG* tail;
+    CRITICAL_SECTION cs;
+    int count;
+} LIST_MSG;
+
 /// <summary>
 /// Initialize list
 /// </summary>
 /// <returns>Pointer to initialized list</returns>
 LIST* init_list();
+
 
 /// <summary>
 /// Add item to front of the list
@@ -39,7 +48,7 @@ LIST* init_list();
 /// <param name="list"> - source list</param>
 /// <param name="data"> - list item to be added</param>
 void add_list_front(LIST* list, LIST_ITEM data);
-///void add_list_front_msg(LIST* list, LIST_ITEM_MSG data);
+
 
 /// <summary>
 /// Add item to back of the list
@@ -83,3 +92,16 @@ bool free_list(LIST** list);
 /// </summary>
 /// <param name="list"> - source list</param>
 void print_list(LIST* list);
+
+
+#pragma region headers for the _MSG structure
+
+LIST_MSG* init_list_msg();
+void add_list_front_msg(LIST_MSG* list, LIST_ITEM_MSG data);
+LIST_ITEM_MSG* get_list_item_msg(LIST_MSG* list, int index);
+bool remove_from_list_msg(LIST_MSG* list, int index);
+bool clear_list_msg(LIST_MSG* list);
+bool free_list_msg(LIST_MSG** list);
+void print_list_msg(LIST_MSG* list);
+
+#pragma endregion

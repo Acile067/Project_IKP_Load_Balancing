@@ -20,6 +20,19 @@ typedef struct _HASH_TABLE
     int count;
 } HASH_TABLE;
 
+typedef struct _HASH_ITEM_MSG
+{
+    char* key;
+    LIST_MSG* list;
+} HASH_ITEM_MSG;
+
+typedef struct _HASH_TABLE_MSG
+{
+    CRITICAL_SECTION cs;
+    _HASH_ITEM_MSG* items;
+    int count;
+} HASH_TABLE_MSG;
+
 /// <summary>
 /// Initialize hash table
 /// </summary>
@@ -42,14 +55,6 @@ unsigned int djb2hash(const char* key);
 /// <returns>True if addition is successful, otherwise false</returns>
 bool add_table_item(HASH_TABLE* table, const char* key, SOCKET sock);
 
-/// <summary>
-/// Add item to hash table
-/// </summary>
-/// <param name="table"> - source table</param>
-/// <param name="key"> - table item key</param>
-/// <param name="msg"> - msg to add</param>
-/// <returns>True if addition is successful, otherwise false</returns>
-//bool add_table_item_msg(HASH_TABLE* table, const char* key, char* msg);
 
 /// <summary>
 /// Add list to hash table
@@ -95,3 +100,16 @@ bool free_hash_table(HASH_TABLE** table);
 /// </summary>
 /// <param name="table"> - table to print</param>
 void print_hash_table(HASH_TABLE* table);
+
+#pragma region headers for the _MSG structure
+
+HASH_TABLE_MSG* init_hash_table_msg();
+bool add_table_item_msg(HASH_TABLE_MSG* table, const char* key, const char* data);
+bool add_list_table_msg(HASH_TABLE_MSG* table, const char* key);
+LIST_MSG* get_table_item_msg(HASH_TABLE_MSG* table, const char* key);
+bool has_key_msg(HASH_TABLE_MSG* table, const char* key);
+bool remove_table_item_msg(HASH_TABLE_MSG* table, const char* key);
+bool free_hash_table_msg(HASH_TABLE_MSG** table);
+void print_hash_table_msg(HASH_TABLE_MSG* table);
+
+#pragma endregion

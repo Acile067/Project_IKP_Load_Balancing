@@ -180,6 +180,7 @@ bool remove_from_list(LIST* list, int index)
     }
 
     free(item);
+    item = NULL;
     list->count--;
     LeaveCriticalSection(&list->cs);
 

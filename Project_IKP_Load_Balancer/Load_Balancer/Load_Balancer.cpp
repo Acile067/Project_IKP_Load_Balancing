@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <winsock.h>
+#include <windows.h>
 #include "../Common/hashtable.h"
 using namespace std;
 #define PORT 5059
@@ -12,9 +13,10 @@ struct sockaddr_in srv;
 fd_set fr, fw, fe;  //Read,Write,Exception
 int nMaxFd;
 
-
 HASH_TABLE* nClientWorkerSocketTable;
 HASH_TABLE_MSG* nClientWorkerMSGTable;
+
+CRITICAL_SECTION cs;  // Dodaj kritičnu sekciju
 
 void ProcessNewMessage(int nClientSocket) 
 {
@@ -25,8 +27,9 @@ void ProcessNewMessage(int nClientSocket)
     int nRet = recv(nClientSocket, buffer, 256, 0);
     if (nRet <= 0) {
         // Ako je socket zatvoren ili došlo do greške
-        cout << endl << "Something bad happen. Closing Socket " << nClientSocket;
+        cout << endl << "Something bad happen. Closing Socket " << nClientSocket << endl;
 
+        EnterCriticalSection(&cs);
         LIST* clients = get_table_item(nClientWorkerSocketTable, "clients");
         if (clients != NULL && clients->count > 0) {
             LIST_ITEM* client = clients->head;
@@ -42,6 +45,7 @@ void ProcessNewMessage(int nClientSocket)
                 client = client->next;
             }
         }
+        LeaveCriticalSection(&cs);
     }
     else {
         cout << endl << "CLIENT SAY: " << buffer;
@@ -78,236 +82,117 @@ void ProcessTheNewRequest()
             }
         }
     }
-
-    // Process all client sockets
-    LIST* clients = get_table_item(nClientWorkerSocketTable, "clients");
-    if (clients != NULL && clients->count > 0) {
-        LIST_ITEM* client = clients->head;
-        LIST_ITEM* prev = NULL;  // Keep track of the previous node
-        int index = 0;
-
-        while (client != NULL) {
-
-            if (client == NULL || client == reinterpret_cast<LIST_ITEM*>(0xdddddddddddddddd)) {
-                cout << "Detected invalid client pointer." << endl;
-                break;
-            }
-
-            SOCKET nClientMSGSocket = client->data;
-
-            // If socket is invalid, remove the client from the list
-            if (nClientMSGSocket == INVALID_SOCKET) {
-                cout << "Invalid socket detected. Removing client." << endl;
-
-                // Remove the client node safely
-                remove_from_list(clients, index);
-
-                // Adjust pointers for the next iteration
-                if (prev == NULL) {  // Removed head
-                    client = clients->head;
-                }
-                else {
-                    client = prev->next;
-                }
-                continue;  // Skip the rest and re-evaluate the new node
-            }
-
-            // Check if the socket is set in FD_SET and process it
-            if (FD_ISSET(nClientMSGSocket, &fr)) {
-                ProcessNewMessage(nClientMSGSocket);
-            }
-
-            // Move to the next client in the list
-            prev = client;
-            client = client->next;
-            index++;
-        }
-    }
 }
 
-int main()
-{
-    nClientWorkerSocketTable = init_hash_table();
-    
-    if (add_list_table(nClientWorkerSocketTable, "clients")) {}
-    if (add_list_table(nClientWorkerSocketTable, "workers")) {}
-
-    //if (add_table_item(nClientWorkerSocketTable, "clients", 111)) {}
-
-    print_hash_table(nClientWorkerSocketTable);
-   
-
-
-    nClientWorkerMSGTable = init_hash_table_msg();
-
-    if (add_list_table_msg(nClientWorkerMSGTable, "client1")) {}
-    if (add_table_item_msg(nClientWorkerMSGTable, "client1", "message1")) {}
-    if (add_table_item_msg(nClientWorkerMSGTable, "client1", "message2")) {}
-
-    print_hash_table_msg(nClientWorkerMSGTable);
-
-    int nRet = 0;
-    //Init WSA 
-    WSADATA ws;
-    if (WSAStartup(MAKEWORD(2, 2), &ws) < 0) 
-    {
-        cout << endl << "WSA Failed";
-        WSACleanup();
-        exit(EXIT_FAILURE);
-    }
-    else
-    {
-        cout << endl << "WSA Succes";
-    }
-
-    //Init Socket
-    nSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (nSocket < 0)
-    {
-        cout << endl << "Socket not open";
-        WSACleanup();
-        exit(EXIT_FAILURE);
-    }
-    else
-    {
-        cout << endl << "Socket open";
-    }
-
-    //Init env for sockaddr structure
-    srv.sin_family = AF_INET;
-    srv.sin_port = htons(PORT);
-    srv.sin_addr.s_addr = INADDR_ANY;
-    memset(&(srv.sin_zero), 0, 8);
-
-    //Blocking or no blocking
-    u_long optval = 0; //0 blocking !=0 non blocking
-    nRet = ioctlsocket(nSocket, FIONBIO, &optval);
-    if (nRet != 0)
-    {
-        cout << endl << "ioctlsocket call failed";
-        WSACleanup();
-        exit(EXIT_FAILURE);
-    }
-    else
-    {
-        cout << endl << "ioctlsocket call passed";
-    }
-
-    //setsockopt
-    int nOptVal = 0;
-    int nOptLen = sizeof(nOptVal);
-    nRet = setsockopt(nSocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&nOptVal, nOptLen);
-    if (!nRet)
-    {
-        cout << endl << "setsockopt success";
-    }
-    else
-    {
-        cout << endl << "setsockopt failed";
-        WSACleanup();
-        exit(EXIT_FAILURE);
-    }
-
-    //Binding
-    nRet = bind(nSocket, (sockaddr*)&srv, sizeof(sockaddr));
-    if (nRet < 0)
-    {
-        cout << endl << "Binding Failed";
-        WSACleanup();
-        exit(EXIT_FAILURE);
-    }
-    else
-    {
-        cout << endl << "Binding Succes";
-    }
-
-    //Listen for clients requests
-    nRet = listen(nSocket, 20); //20 requests
-    if (nRet < 0)
-    {
-        cout << endl << "Listen Failed";
-        WSACleanup();
-        exit(EXIT_FAILURE);
-    }
-    else
-    {
-        cout << endl << "Listen Succes";
-    }
-
-    //Keep waitnig for new clients
-    nMaxFd = nSocket;
-    struct timeval tv;
-    tv.tv_sec = 1;
-
-    while (1)
-    {
+// Thread funkcija za prihvatanje novih konekcija
+DWORD WINAPI AcceptConnectionsThread(LPVOID lpParam) {
+    while (true) {
         FD_ZERO(&fr);
-        FD_ZERO(&fw);
         FD_ZERO(&fe);
-
         FD_SET(nSocket, &fr);
         FD_SET(nSocket, &fe);
 
+        struct timeval tv;
+        tv.tv_sec = 1;
+        int nRet = select(nMaxFd + 1, &fr, NULL, &fe, &tv);
+        if (nRet > 0 && FD_ISSET(nSocket, &fr)) {
+            ProcessTheNewRequest();
+        }
+    }
+    return 0;
+}
+
+DWORD WINAPI ProcessMessagesThread(LPVOID lpParam) {
+    while (true) {
+        FD_ZERO(&fr);
+        FD_ZERO(&fe);
+
+        // Dodajemo sve klijente u fd_set za proveru poruka
+        EnterCriticalSection(&cs);
         LIST* clients = get_table_item(nClientWorkerSocketTable, "clients");
         if (clients != NULL && clients->count > 0) {
             LIST_ITEM* client = clients->head;
             while (client != NULL) {
                 SOCKET nClientMSGSocket = client->data;
                 FD_SET(nClientMSGSocket, &fr);
-                FD_SET(nClientMSGSocket, &fe);
                 client = client->next;
             }
         }
+        LeaveCriticalSection(&cs);
 
-        LIST* workers = get_table_item(nClientWorkerSocketTable, "workers");
-        if (workers != NULL && workers->count > 0) {
-            LIST_ITEM* worker = workers->head;
-            while (worker != NULL) {
-                SOCKET nWorkersSocket = worker->data;
-                FD_SET(nWorkersSocket, &fr);
-                FD_SET(nWorkersSocket, &fe);
-                worker = worker->next;
+        struct timeval tv;
+        tv.tv_sec = 1;
+        int nRet = select(nMaxFd + 1, &fr, NULL, NULL, &tv);
+        if (nRet > 0) {
+            EnterCriticalSection(&cs);
+            LIST_ITEM* client = clients ? clients->head : nullptr;
+            while (client != NULL) {
+                if (client == NULL || client == reinterpret_cast<LIST_ITEM*>(0xdddddddddddddddd)) {
+                    cout << "Detected invalid client pointer." << endl;
+                    break;
+                }
+                SOCKET nClientMSGSocket = client->data;
+                if (FD_ISSET(nClientMSGSocket, &fr)) {
+                    ProcessNewMessage(nClientMSGSocket);
+                }
+                client = client->next;
             }
+            LeaveCriticalSection(&cs);
         }
-
-
-        /*
-        for (int nIndex = 0; nIndex < 5; nIndex++)           //TODO HashMap za ovo 5
-        {
-            if (nArrClient[nIndex] != 0)
-            {
-                FD_SET(nArrClient[nIndex], &fr);
-                FD_SET(nArrClient[nIndex], &fe);
-            }
-        }*/
-        //cout << endl << "Befor select call:" << fr.fd_count;
-
-        nRet = select(nMaxFd + 1, &fr, &fw, &fe, &tv);
-        if (nRet > 0)
-        {
-            //cout << "NRET" << endl << nRet << endl << "NRET" << endl;
-            //someone connected
-            cout << endl << "Someone connected!";       //comment later
-            //Process request
-            ProcessTheNewRequest();
-
-            //break;
-        }
-        else if (nRet == 0)
-        {
-            //no connections
-            //cout << endl << "Nothing on Port";
-        }
-        else
-        {
-            //failed
-            cout << endl << "Failed";
-            WSACleanup();
-            exit(EXIT_FAILURE);
-        }
-
-        //cout << endl << "After select call:" << fr.fd_count;
-        //Sleep(10000);
     }
+    return 0;
+}
+
+int main()
+{
+    nClientWorkerSocketTable = init_hash_table();
+    add_list_table(nClientWorkerSocketTable, "clients");
+    add_list_table(nClientWorkerSocketTable, "workers");
+
+    nClientWorkerMSGTable = init_hash_table_msg();
+
+    // Inicijalizacija kritične sekcije u main funkciji
+    InitializeCriticalSection(&cs);
+
+    // Inicijalizacija Winsock-a i kreiranje socket-a
+    WSADATA ws;
+    if (WSAStartup(MAKEWORD(2, 2), &ws) < 0) {
+        cout << "WSA Failed" << endl;
+        WSACleanup();
+        exit(EXIT_FAILURE);
+    }
+    cout << "WSA Success" << endl;
+
+    nSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (nSocket < 0) {
+        cout << "Socket not open" << endl;
+        WSACleanup();
+        exit(EXIT_FAILURE);
+    }
+    cout << "Socket open" << endl;
+
+    srv.sin_family = AF_INET;
+    srv.sin_port = htons(PORT);
+    srv.sin_addr.s_addr = INADDR_ANY;
+    memset(&(srv.sin_zero), 0, 8);
+
+    // Bind i listen
+    bind(nSocket, (sockaddr*)&srv, sizeof(sockaddr));
+    listen(nSocket, 20);
+    cout << "Listen Ready:" << endl;
+
+    // Inicijalizacija threadova za nove konekcije i poruke
+    HANDLE hThread1 = CreateThread(NULL, 0, AcceptConnectionsThread, NULL, 0, NULL);
+    HANDLE hThread2 = CreateThread(NULL, 0, ProcessMessagesThread, NULL, 0, NULL);
+
+    // Cekamo da thread-ovi završe (ili možete dodati dodatnu logiku za prekid)
+    WaitForSingleObject(hThread1, INFINITE);
+    WaitForSingleObject(hThread2, INFINITE);
+
+    // Zatvori socket i očisti Winsock
+    DeleteCriticalSection(&cs);
+    closesocket(nSocket);
+    WSACleanup();
+    return 0;
     
 }

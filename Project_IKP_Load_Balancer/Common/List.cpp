@@ -281,6 +281,41 @@ LIST_MSG* init_list_msg()
 // Dodavanje elementa na početak liste
 void add_list_front_msg(LIST_MSG* list, LIST_ITEM_MSG data)
 {
+    //if (list == NULL)
+    //{
+    //    cout << "add_list_front() failed: list is NULL" << endl;
+    //    return;
+    //}
+
+    //EnterCriticalSection(&list->cs);
+
+    //// Kreiramo novu stavku liste
+    //LIST_ITEM_MSG* item = (LIST_ITEM_MSG*)malloc(sizeof(LIST_ITEM_MSG));
+    //if (item == NULL)
+    //{
+    //    cout << "add_list_front() failed: out of memory" << endl;
+    //    LeaveCriticalSection(&list->cs);
+    //    return;
+    //}
+
+    //item->data = data.data;
+    //item->next = NULL;
+
+    //if (list->count == 0)
+    //{
+    //    list->head = item;
+    //    list->tail = item;
+    //}
+    //else
+    //{
+    //    item->next = list->head;
+    //    list->head = item;
+    //}
+
+    //list->count++;
+
+    //LeaveCriticalSection(&list->cs);
+
     if (list == NULL)
     {
         cout << "add_list_front() failed: list is NULL" << endl;
@@ -289,6 +324,7 @@ void add_list_front_msg(LIST_MSG* list, LIST_ITEM_MSG data)
 
     EnterCriticalSection(&list->cs);
 
+    // Kreiramo novu stavku liste
     LIST_ITEM_MSG* item = (LIST_ITEM_MSG*)malloc(sizeof(LIST_ITEM_MSG));
     if (item == NULL)
     {
@@ -297,9 +333,21 @@ void add_list_front_msg(LIST_MSG* list, LIST_ITEM_MSG data)
         return;
     }
 
-    item->data = data.data;
+    // Prvo kopiramo podatke
+    item->data = (char*)malloc(strlen(data.data) + 1);  // Alociramo memoriju za string
+    if (item->data == NULL)
+    {
+        cout << "add_list_front() failed: out of memory for data" << endl;
+        free(item);  // Oslobađamo memoriju za item, jer ne možemo da nastavimo
+        LeaveCriticalSection(&list->cs);
+        return;
+    }
+
+    item->data = _strdup(data.data); // Kopiramo podatke
+
     item->next = NULL;
 
+    // Ako je lista prazna, postavljamo head i tail na ovaj element
     if (list->count == 0)
     {
         list->head = item;
@@ -312,6 +360,7 @@ void add_list_front_msg(LIST_MSG* list, LIST_ITEM_MSG data)
     }
 
     list->count++;
+
     LeaveCriticalSection(&list->cs);
 }
 

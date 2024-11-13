@@ -1,5 +1,1 @@
-﻿  Client.cpp
-D:\GitLab Repo\Project_IKP_Load_Balancing\Project_IKP_Load_Balancer\Client\Client.cpp(17,25): warning C4309: '=': truncation of constant value
-D:\GitLab Repo\Project_IKP_Load_Balancing\Project_IKP_Load_Balancer\Client\Client.cpp(37,27): warning C4244: '=': conversion from 'SOCKET' to 'int', possible loss of data
-D:\GitLab Repo\Project_IKP_Load_Balancing\Project_IKP_Load_Balancer\Client\Client.cpp(101,59): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
-  Client.vcxproj -> D:\GitLab Repo\Project_IKP_Load_Balancing\Project_IKP_Load_Balancer\x64\Debug\Client.exe
+﻿  Client.vcxproj -> D:\GitLab Repo\Project_IKP_Load_Balancing\Project_IKP_Load_Balancer\x64\Debug\Client.exe

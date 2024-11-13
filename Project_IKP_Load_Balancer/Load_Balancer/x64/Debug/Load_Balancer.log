@@ -1,5 +1,1 @@
-﻿  Load_Balancer.cpp
-D:\GitLab Repo\Project_IKP_Load_Balancing\Project_IKP_Load_Balancer\Load_Balancer\Load_Balancer.cpp(58,27): warning C4244: 'initializing': conversion from 'SOCKET' to 'int', possible loss of data
-D:\GitLab Repo\Project_IKP_Load_Balancing\Project_IKP_Load_Balancer\Load_Balancer\Load_Balancer.cpp(117,35): warning C4244: 'argument': conversion from 'SOCKET' to 'int', possible loss of data
-D:\GitLab Repo\Project_IKP_Load_Balancing\Project_IKP_Load_Balancer\Load_Balancer\Load_Balancer.cpp(164,21): warning C4244: '=': conversion from 'SOCKET' to 'int', possible loss of data
-  Load_Balancer.vcxproj -> D:\GitLab Repo\Project_IKP_Load_Balancing\Project_IKP_Load_Balancer\x64\Debug\Load_Balancer.exe
+﻿  Load_Balancer.vcxproj -> D:\GitLab Repo\Project_IKP_Load_Balancing\Project_IKP_Load_Balancer\x64\Debug\Load_Balancer.exe

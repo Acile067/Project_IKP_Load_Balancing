@@ -331,7 +331,7 @@ void print_hash_table(HASH_TABLE* table)
         return;
     }
 
-    cout << "======== djb2hash Table ========" << endl;
+    cout << "======== Socket Table ========" << endl;
     cout << "Count: " << table->count << endl << endl;
     for (int i = 0; i < TABLE_SIZE; i++)
     {
@@ -647,7 +647,7 @@ void print_hash_table_msg(HASH_TABLE_MSG* table)
         return;
     }
 
-    cout << "======== djb2hash Table ========" << endl;
+    cout << "======== Messages Table ========" << endl;
     cout << "Count: " << table->count << endl << endl;
     for (int i = 0; i < TABLE_SIZE; i++)
     {

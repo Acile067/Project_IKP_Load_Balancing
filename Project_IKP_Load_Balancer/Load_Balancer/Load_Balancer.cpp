@@ -51,6 +51,18 @@ void ProcessNewMessage(int nClientSocket)
         cout << endl << "CLIENT SAY: " << buffer;
         send(nClientSocket, "SERVER: Got message!", 21, 0);
         cout << endl << "******************";
+        char clentName[50];
+        snprintf(clentName, sizeof(clentName), "clent-%d", nClientSocket);
+        const char* clientName = clentName;
+        cout << endl << clientName << endl;
+
+        if (!get_table_item_msg(nClientWorkerMSGTable, clientName))
+        {
+            if (add_list_table_msg(nClientWorkerMSGTable, clientName)) {}
+        }
+        if (add_table_item_msg(nClientWorkerMSGTable, clientName, buffer)) {}
+
+        print_hash_table_msg(nClientWorkerMSGTable);
     }
 }
 

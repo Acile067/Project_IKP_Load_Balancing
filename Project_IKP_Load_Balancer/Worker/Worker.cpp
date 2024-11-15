@@ -132,7 +132,6 @@ int main()
     char buffer[255] = { 0, };
 
     recv(nWorkerSocket, buffer, 255, 0);
-    cout << endl << "Converted hash table to string: " << buffer;
     
     ParseFromStringToHashTable(buffer);
 

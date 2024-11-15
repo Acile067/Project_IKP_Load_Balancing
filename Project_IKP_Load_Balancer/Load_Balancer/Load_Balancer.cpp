@@ -27,9 +27,7 @@ QUEUEELEMENT* dequeued;
 void RedistributeDataToWorker(int nWorkerSocket)
 {
     cout << "Redistributing data to worker: " << nWorkerSocket << endl;
-
-    
-    
+  
     char ret[256 + 1];
     EnterCriticalSection(&nClientWorkerMSGTable->cs); // Zaštitite pristup hash tabeli
     convert_to_string(nClientWorkerMSGTable, ret, sizeof(ret));
@@ -37,9 +35,43 @@ void RedistributeDataToWorker(int nWorkerSocket)
     cout << "Converted nClientWorkerMSGTable: " << ret << endl;
     send(nWorkerSocket, ret, sizeof(ret), 0);
     
-
-    
     cout << "Data successfully redistributed to worker." << endl;
+}
+
+void ProcessNewMessageOrDisconnectWorker(int nWorkerSocket)
+{
+    cout << endl << "Procesing message from worker: " << nWorkerSocket;
+    char buffer[256 + 1] = { 0, };
+
+    // Proveri da li je socket još uvek otvoren pre nego što pozoveš recv
+    int nRet = recv(nWorkerSocket, buffer, 256, 0);
+    if (nRet <= 0) {
+        // Ako je socket zatvoren ili došlo do greške
+        cout << endl << "Something bad happen. Closing Worker Socket " << nWorkerSocket << endl;
+        closesocket(nWorkerSocket);
+
+        EnterCriticalSection(&cs);
+        LIST* workers = get_table_item(nClientWorkerSocketTable, "workers");
+        if (workers != NULL && workers->count > 0) {
+            LIST_ITEM* worker = workers->head;
+            int nIndexCnt = 0;
+            while (worker != NULL) {
+                if (worker->data == nWorkerSocket) {
+                    if (remove_from_list(workers, nIndexCnt)) {
+                        print_hash_table(nClientWorkerSocketTable);
+                    }
+                    break; // Moze se prekinuti petlja nakon brisanja
+                }
+                nIndexCnt++;
+                worker = worker->next;
+            }
+        }
+        LeaveCriticalSection(&cs);
+    }
+    else 
+    {
+        cout << endl << "CANT HAPPEN NOW";
+    }
 }
 
 void ProcessNewMessage(int nClientSocket) 
@@ -51,7 +83,7 @@ void ProcessNewMessage(int nClientSocket)
     int nRet = recv(nClientSocket, buffer, 256, 0);
     if (nRet <= 0) {
         // Ako je socket zatvoren ili došlo do greške
-        cout << endl << "Something bad happen. Closing Socket " << nClientSocket << endl;
+        cout << endl << "Something bad happen. Closing Client Socket " << nClientSocket << endl;
         closesocket(nClientSocket);
 
         EnterCriticalSection(&cs);
@@ -153,14 +185,29 @@ DWORD WINAPI ProcessMessagesThread(LPVOID lpParam) {
             while (client != NULL) {
                 SOCKET nClientMSGSocket = client->data;
                 FD_SET(nClientMSGSocket, &fr);
+                FD_SET(nClientMSGSocket, &fe);
                 client = client->next;
+            }
+        }
+        LeaveCriticalSection(&cs);
+
+        EnterCriticalSection(&cs);
+        LIST* workers = get_table_item(nClientWorkerSocketTable, "workers");
+        if (workers != NULL && workers->count > 0) {
+            LIST_ITEM* worker = workers->head;
+            while (worker != NULL) {
+                SOCKET nWorkerSocket = worker->data;
+                FD_SET(nWorkerSocket, &fr); // Dodajemo u fd_set za workere
+                FD_SET(nWorkerSocket, &fe); // Dodajemo u exception fd_set za workere
+                worker = worker->next;
             }
         }
         LeaveCriticalSection(&cs);
 
         struct timeval tv;
         tv.tv_sec = 1;
-        int nRet = select(nMaxFd + 1, &fr, NULL, NULL, &tv);
+        bool clientGotMessage = false;
+        int nRet = select(nMaxFd + 1, &fr, NULL, &fe, &tv);
         if (nRet > 0) {
             EnterCriticalSection(&cs);
             LIST_ITEM* client = clients ? clients->head : nullptr;
@@ -172,10 +219,31 @@ DWORD WINAPI ProcessMessagesThread(LPVOID lpParam) {
                 SOCKET nClientMSGSocket = client->data;
                 if (FD_ISSET(nClientMSGSocket, &fr)) {
                     ProcessNewMessage(nClientMSGSocket);
+                    clientGotMessage = true;
+                    //break;
                 }
                 client = client->next;
             }
             LeaveCriticalSection(&cs);
+
+            if (!clientGotMessage)
+            {
+                EnterCriticalSection(&cs);
+                LIST_ITEM* worker = workers ? workers->head : nullptr;
+                while (worker != NULL) {
+                    if (worker == NULL || worker == reinterpret_cast<LIST_ITEM*>(0xdddddddddddddddd)) {
+                        cout << "Detected invalid worker pointer." << endl;
+                        break;
+                    }
+                    SOCKET nWorkerSocket = worker->data;
+                    if (FD_ISSET(nWorkerSocket, &fr)) {
+                        ProcessNewMessageOrDisconnectWorker(nWorkerSocket);
+                        //break;
+                    }
+                    worker = worker->next;
+                }
+                LeaveCriticalSection(&cs);
+            }
         }
     }
     return 0;

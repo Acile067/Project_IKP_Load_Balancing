@@ -5,8 +5,10 @@
 #include <winsock.h>
 #include <windows.h>
 #include "../Common/hashtable.h"
+#include"../Common/queueLBtoWorker.h"
 using namespace std;
 #define PORT 5059
+#define QUEUESIZE 20
 
 int nSocket;
 struct sockaddr_in srv;
@@ -18,6 +20,9 @@ HASH_TABLE_MSG* nClientWorkerMSGTable;
 
 CRITICAL_SECTION cs;  // Dodaj kritičnu sekciju
 
+QUEUE* nClientQueue;
+QUEUEELEMENT* dequeued;
+
 void ProcessNewMessage(int nClientSocket) 
 {
     cout << endl << "Procesing message from client: " << nClientSocket;
@@ -28,6 +33,7 @@ void ProcessNewMessage(int nClientSocket)
     if (nRet <= 0) {
         // Ako je socket zatvoren ili došlo do greške
         cout << endl << "Something bad happen. Closing Socket " << nClientSocket << endl;
+        closesocket(nClientSocket);
 
         EnterCriticalSection(&cs);
         LIST* clients = get_table_item(nClientWorkerSocketTable, "clients");
@@ -162,6 +168,14 @@ int main()
     add_list_table(nClientWorkerSocketTable, "workers");
 
     nClientWorkerMSGTable = init_hash_table_msg();
+
+    nClientQueue = init_queue(QUEUESIZE);
+    enqueue(nClientQueue, create_queue_element("client-211", "MONGOL"));
+    enqueue(nClientQueue, create_queue_element("client-211", "IDEGAS"));
+    print_queue(nClientQueue);
+    dequeued = dequeue(nClientQueue);
+    cout << endl << "Prvi u redu element: " << dequeued->clientName << " " << dequeued->data << endl << endl;
+    print_queue(nClientQueue);
 
     // Inicijalizacija kritične sekcije u main funkciji
     InitializeCriticalSection(&cs);

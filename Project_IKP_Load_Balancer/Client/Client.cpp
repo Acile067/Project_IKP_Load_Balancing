@@ -19,6 +19,24 @@ void cleanup() {
     WSACleanup();
 }
 
+// Funkcija koja proverava da li poruka sadrži barem jedan alfanumerički karakter
+bool isValidMessage(const char* message) {
+    bool hasAlphanumeric = false;
+
+    // Prolazimo kroz svaki karakter u poruci
+    for (size_t i = 0; i < strlen(message); ++i) {
+        char c = message[i];
+        // Ako je karakter alfanumerički (slovo ili broj), označavamo kao validnu poruku
+        if (isalnum(c)) {
+            hasAlphanumeric = true;
+            break;  // Nema potrebe da dalje proveravamo
+        }
+    }
+
+    // Ako nije pronađen nijedan alfanumerički karakter, poruka nije validna
+    return hasAlphanumeric;
+}
+
 int main() {
     int nRet = 0;
 
@@ -95,6 +113,11 @@ int main() {
         if (strcmp(buffer, "end") == 0) {
             cout << "END" << endl;
             break;
+        }
+
+        if (strlen(buffer) == 0 || !isValidMessage(buffer)) {
+            cout << "Incorrect message content. The message was not sent. Try again." << endl;
+            continue;  // Traži ponovo unos
         }
 
         // Šaljemo poruku serveru

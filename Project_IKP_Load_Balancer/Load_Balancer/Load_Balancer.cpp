@@ -23,6 +23,25 @@ CRITICAL_SECTION cs;  // Dodaj kritičnu sekciju
 QUEUE* nClientQueue;
 QUEUEELEMENT* dequeued;
 
+
+void RedistributeDataToWorker(int nWorkerSocket)
+{
+    cout << "Redistributing data to worker: " << nWorkerSocket << endl;
+
+    
+    
+    char ret[256 + 1];
+    EnterCriticalSection(&nClientWorkerMSGTable->cs); // Zaštitite pristup hash tabeli
+    convert_to_string(nClientWorkerMSGTable, ret, sizeof(ret));
+    LeaveCriticalSection(&nClientWorkerMSGTable->cs);
+    cout << "Converted nClientWorkerMSGTable: " << ret << endl;
+    send(nWorkerSocket, ret, sizeof(ret), 0);
+    
+
+    
+    cout << "Data successfully redistributed to worker." << endl;
+}
+
 void ProcessNewMessage(int nClientSocket) 
 {
     cout << endl << "Procesing message from client: " << nClientSocket;
@@ -93,6 +112,7 @@ void ProcessTheNewRequest()
                 cout << "Added a worker to the table with socket: " << nClientSocket << endl;
                 send(nClientSocket, "SERVER: You are connected as WORKER", 36, 0);
                 print_hash_table(nClientWorkerSocketTable);
+                RedistributeDataToWorker(nClientSocket);
             }
             else {
                 cout << "Unknown connection type" << endl;

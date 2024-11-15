@@ -1,13 +1,76 @@
-// Worker.cpp : This file contains the 'main' function. Program execution begins and ends there.
+﻿// Worker.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
 
 #include <iostream>
 #include <winsock.h>
+#include "../Common/hashtable.h"
+#include <sstream>
+#include <cstring>
 using namespace std;
 #define PORT 5059
+#define MAX_TOKENS 100
+#define MAX_TOKEN_LEN 255
+#define _CRT_SECURE_NO_WARNINGS
 
 int nWorkerSocket;
 struct sockaddr_in srv;
+
+HASH_TABLE_MSG* nClientWorkerMSGTable;
+
+// Funkcija za podelu stringa po delimiteru
+int split_string(const char* str, char delimiter, char output[MAX_TOKENS][MAX_TOKEN_LEN]) {
+    int count = 0;
+    char* token;
+    char* str_copy = _strdup(str);  // Napravite kopiju stringa
+    char* context = nullptr;  // Kontekst za strtok_s
+
+    token = strtok_s(str_copy, &delimiter, &context);  // Koristimo sigurniju verziju strtok
+
+    while (token != NULL && count < MAX_TOKENS) {
+        strncpy_s(output[count], token, MAX_TOKEN_LEN - 1);  // Dodajte -1 da biste ostavili prostor za '\0'
+        output[count][MAX_TOKEN_LEN - 1] = '\0';  // Osigurajte da string bude nul-terminiran
+        token = strtok_s(NULL, &delimiter, &context);  // Za sledeći token
+        count++;
+    }
+
+    free(str_copy);  // Oslobađanje memorije
+    return count;
+}
+
+void ParseFromStringToHashTable(char* data)
+{
+    cout << endl << "Data to parse: " << data;
+
+    // Podela podataka po ';' da bi se dobili klijenti
+    char clients[MAX_TOKENS][MAX_TOKEN_LEN];
+    int num_clients = split_string(data, ';', clients);
+
+    for (int i = 0; i < num_clients; i++) {
+        if (strlen(clients[i]) == 0) continue;  // Preskočite prazne stringove
+
+        // Definišite kontekst za strtok_s
+        char* context = nullptr;
+
+        // Podelite klijenta po ":" da biste dobili ime klijenta i poruke
+        char* client_name = strtok_s(clients[i], ":", &context);
+        char* messages_str = strtok_s(nullptr, ":", &context);
+
+        // Podela poruka po ','
+        char messages[MAX_TOKENS][MAX_TOKEN_LEN];
+        int num_messages = split_string(messages_str, ',', messages);
+
+        // Dodavanje klijenta u tabelu
+        if (add_list_table_msg(nClientWorkerMSGTable, client_name)) {}
+
+        // Dodavanje poruka za tog klijenta
+        for (int j = num_messages - 1; j >= 0; j--) {
+            char* msg = messages[j]; // Poruka je već string, nije potrebno konvertovati u broj
+            if (add_table_item_msg(nClientWorkerMSGTable, client_name, msg)) {}
+        }
+    }
+}
+
+
 
 int main()
 {
@@ -64,9 +127,20 @@ int main()
         cout << endl << buffer;
     }
 
+    nClientWorkerMSGTable = init_hash_table_msg();
+
+    char buffer[255] = { 0, };
+
+    recv(nWorkerSocket, buffer, 255, 0);
+    cout << endl << "Converted hash table to string: " << buffer;
     
+    ParseFromStringToHashTable(buffer);
+
+    cout << endl;
+    print_hash_table_msg(nClientWorkerMSGTable);
 
     cout << endl << "Press any to exit... Worker is Running";
     char exit = getchar();
+    WSACleanup();
 }
 

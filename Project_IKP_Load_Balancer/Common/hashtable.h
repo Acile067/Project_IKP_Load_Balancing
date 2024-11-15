@@ -111,5 +111,6 @@ bool has_key_msg(HASH_TABLE_MSG* table, const char* key);
 bool remove_table_item_msg(HASH_TABLE_MSG* table, const char* key);
 bool free_hash_table_msg(HASH_TABLE_MSG** table);
 void print_hash_table_msg(HASH_TABLE_MSG* table);
+void convert_to_string(HASH_TABLE_MSG* table, char* ret, size_t size);
 
 #pragma endregion

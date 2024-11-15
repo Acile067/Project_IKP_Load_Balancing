@@ -661,4 +661,61 @@ void print_hash_table_msg(HASH_TABLE_MSG* table)
     }
     cout << "============================" << endl;
 }
+
+void convert_to_string(HASH_TABLE_MSG* table, char* ret, size_t size)
+{
+    if (ret == NULL || size == 0) {
+        return;
+    }
+
+    memset(ret, 0, size); // Resetuj izlazni string
+
+    size_t currentIndex = 0; // Trenutna pozicija u `ret`
+
+    for (int i = 0; i < TABLE_SIZE; i++)
+    {
+        if (table->items[i].key != NULL && table->items[i].list != NULL) {
+            // Proveri koliko prostora je ostalo u `ret`
+            size_t remaining = size - currentIndex;
+
+            // Dodaj ključeve u string samo ako ima dovoljno prostora
+            if (remaining > 1) { // Ostaviti mesta za '\0'
+
+                // Početak za klijenta
+                int written = snprintf(ret + currentIndex, remaining, "%s:", table->items[i].key);
+                if (written > 0 && written < remaining) {
+                    currentIndex += written; // Povećaj indeks za napisani broj znakova
+                    remaining -= written;
+                }
+                else {
+                    break; // Prostor nije dovoljan
+                }
+
+                // Iteracija kroz listu poruka
+                LIST_ITEM_MSG* item = table->items[i].list->head;
+                while (item != NULL) {
+                    // Dodaj poruku u string
+                    written = snprintf(ret + currentIndex, remaining, "%s%s", item->data, item->next ? "," : "");
+                    if (written > 0 && written < remaining) {
+                        currentIndex += written;
+                        remaining -= written;
+                    }
+                    else {
+                        break; // Prostor nije dovoljan
+                    }
+                    item = item->next;
+                }
+
+                // Dodaj tačku-zarez za razdvajanje klijenata
+                written = snprintf(ret + currentIndex, remaining, ";");
+                if (written > 0 && written < remaining) {
+                    currentIndex += written;
+                }
+                else {
+                    break; // Prostor nije dovoljan
+                }
+            }
+        }
+    }
+}
 #pragma endregion

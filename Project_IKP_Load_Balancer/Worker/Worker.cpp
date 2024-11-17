@@ -70,7 +70,82 @@ void ParseFromStringToHashTable(char* data)
     }
 }
 
+void ParseAndAddToHashTable(char* msg)
+{
+    if (msg == NULL || strlen(msg) == 0)
+    {
+        cout << "Invalid message!" << endl;                                     //TODO treba skontati zasto ovde upadne prvi put Zato je prva poruka prazna?
+        return;
+    }
 
+    char* context = NULL;
+    char* key = strtok_s(msg, ":", &context); 
+    char* value = strtok_s(NULL, ":", &context);
+
+    if (key != NULL && value != NULL)
+    {
+        cout << "Key: " << key << ", Value: " << value << endl;
+
+        // Dodajte ključ i vrednost u hash tabelu
+        if (!get_table_item_msg(nClientWorkerMSGTable, key))
+        {
+            if (add_list_table_msg(nClientWorkerMSGTable, key)) {}
+        }
+        if (add_table_item_msg(nClientWorkerMSGTable, key, value)) {}
+
+        print_hash_table_msg(nClientWorkerMSGTable);
+    }
+    else
+    {
+        cout << "Message format is invalid!" << endl;
+    }
+}
+
+void ProcessNewMessgae(SOCKET nWorkerSocket)
+{
+    cout << endl << "Procesing message from LB: " << nWorkerSocket;
+    char buffer[256 + 1] = { 0, };
+
+    // Proveri da li je socket još uvek otvoren pre nego što pozoveš recv
+    int nRet = recv(nWorkerSocket, buffer, 256, 0);
+    if (nRet <= 0)
+    {
+        cout << endl << "Something bad happen. Closing LB Socket" << endl;
+        closesocket(nWorkerSocket);
+    }
+    else 
+    {
+        cout << endl << buffer << endl;
+        ParseAndAddToHashTable(buffer);
+    }
+}
+
+DWORD WINAPI ProcessLBMessage(LPVOID lpParam)
+{
+    char buffer[1024] = { 0 }; // Bafer za prijem podataka
+    fd_set read_fds;           // Skup soketa za praćenje događaja za čitanje
+    struct timeval timeout;    // Tajmaut za `select`
+    int nRet;
+    while (1)
+    {
+        FD_ZERO(&read_fds);
+        FD_SET(nWorkerSocket, &read_fds);
+
+        // Postavljanje tajmauta (1 sekunde)
+        timeout.tv_sec = 1;
+
+        // Praćenje događaja na soketu
+        nRet = select(0, &read_fds, NULL, NULL, &timeout);
+        if (nRet > 0) 
+        {
+            if (FD_ISSET(nWorkerSocket, &read_fds)) {
+                ProcessNewMessgae(nWorkerSocket);
+            }
+            
+        }
+
+    }
+}
 
 int main()
 {
@@ -137,6 +212,11 @@ int main()
 
     cout << endl;
     print_hash_table_msg(nClientWorkerMSGTable);
+
+
+    HANDLE hThread1 = CreateThread(NULL, 0, ProcessLBMessage, NULL, 0, NULL);
+
+    WaitForSingleObject(hThread1, INFINITE);
 
     cout << endl << "Press any to exit... Worker is Running";
     char exit = getchar();

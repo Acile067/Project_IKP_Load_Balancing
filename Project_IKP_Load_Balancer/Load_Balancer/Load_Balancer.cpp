@@ -20,8 +20,10 @@ HASH_TABLE_MSG* nClientWorkerMSGTable;
 
 CRITICAL_SECTION cs;  // Dodaj kritičnu sekciju
 
-QUEUE* nClientQueue;
+QUEUE* nClientMsgsQueue;
 QUEUEELEMENT* dequeued;
+
+int lastAssignedWorker = -1;
 
 
 void RedistributeDataToWorker(int nWorkerSocket)
@@ -120,6 +122,10 @@ void ProcessNewMessage(int nClientSocket)
         if (add_table_item_msg(nClientWorkerMSGTable, clientName, buffer)) {}
 
         print_hash_table_msg(nClientWorkerMSGTable);
+
+        EnterCriticalSection(&cs);
+        enqueue(nClientMsgsQueue, create_queue_element(clientName, buffer));
+        LeaveCriticalSection(&cs);
     }
 }
 
@@ -249,6 +255,49 @@ DWORD WINAPI ProcessMessagesThread(LPVOID lpParam) {
     return 0;
 }
 
+void SendMsgToWorker(SOCKET nWorkerSocket, char* msg)
+{
+    send(nWorkerSocket, msg, (int)strlen(msg), 0); // Šalje poruku kroz soket
+    cout << endl << nWorkerSocket << "->" << msg;
+}
+
+DWORD WINAPI SendMassagesToWorkersRoundRobin(LPVOID lpParam) {
+    while (true) 
+    {
+        if (nClientMsgsQueue->currentSize > 0)
+        {
+            EnterCriticalSection(&cs);
+            dequeued = dequeue(nClientMsgsQueue);
+            LeaveCriticalSection(&cs);
+
+            EnterCriticalSection(&cs);
+            LIST* workers = get_table_item(nClientWorkerSocketTable, "workers");
+            if (workers != NULL && workers->count > 0) {
+                lastAssignedWorker = (lastAssignedWorker + 1) % workers->count;
+                LIST_ITEM* worker = workers->head;
+                int nIndex = 0;
+                while (worker != NULL) {
+                    if (nIndex == lastAssignedWorker) {
+                        // Assign the task to the next worker
+                        int nWorkerSocket = worker->data;
+                        cout << "[Load Balancer] Assigning client request to worker: " << nWorkerSocket << endl;
+
+                        char message[256]; // Ensure the buffer is large enough
+                        snprintf(message, sizeof(message), "%s:%s", dequeued->clientName, dequeued->data);
+
+                        SendMsgToWorker(nWorkerSocket, message);  // Send the data to this worker
+                        break;
+                    }
+                    nIndex++;
+                    worker = worker->next;
+                }
+            }
+            LeaveCriticalSection(&cs);
+
+        }
+    }
+}
+
 int main()
 {
     nClientWorkerSocketTable = init_hash_table();
@@ -257,13 +306,13 @@ int main()
 
     nClientWorkerMSGTable = init_hash_table_msg();
 
-    nClientQueue = init_queue(QUEUESIZE);
-    enqueue(nClientQueue, create_queue_element("client-211", "MONGOL"));
+    nClientMsgsQueue = init_queue(QUEUESIZE);
+    /*enqueue(nClientQueue, create_queue_element("client-211", "MONGOL"));
     enqueue(nClientQueue, create_queue_element("client-211", "IDEGAS"));
     print_queue(nClientQueue);
     dequeued = dequeue(nClientQueue);
     cout << endl << "Prvi u redu element: " << dequeued->clientName << " " << dequeued->data << endl << endl;
-    print_queue(nClientQueue);
+    print_queue(nClientQueue);*/
 
     // Inicijalizacija kritične sekcije u main funkciji
     InitializeCriticalSection(&cs);
@@ -295,13 +344,15 @@ int main()
     listen(nSocket, 20);
     cout << "Listen Ready:" << endl;
 
-    // Inicijalizacija threadova za nove konekcije i poruke
+    // Inicijalizacija threadova za nove konekcije i poruke i slanje poruka ka workeru
     HANDLE hThread1 = CreateThread(NULL, 0, AcceptConnectionsThread, NULL, 0, NULL);
     HANDLE hThread2 = CreateThread(NULL, 0, ProcessMessagesThread, NULL, 0, NULL);
+    HANDLE hThread3 = CreateThread(NULL, 0, SendMassagesToWorkersRoundRobin, NULL, 0, NULL);
 
     // Cekamo da thread-ovi završe (ili možete dodati dodatnu logiku za prekid)
     WaitForSingleObject(hThread1, INFINITE);
     WaitForSingleObject(hThread2, INFINITE);
+    WaitForSingleObject(hThread3, INFINITE);
 
     // Zatvori socket i očisti Winsock
     DeleteCriticalSection(&cs);

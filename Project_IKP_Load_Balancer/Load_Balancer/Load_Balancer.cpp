@@ -17,6 +17,7 @@ int nMaxFd;
 
 HASH_TABLE* nClientWorkerSocketTable;
 HASH_TABLE_MSG* nClientWorkerMSGTable;
+HASH_TABLE_INT* nClientWorkerINTTable;
 
 CRITICAL_SECTION cs;  // Dodaj kritičnu sekciju
 
@@ -307,12 +308,13 @@ int main()
     nClientWorkerMSGTable = init_hash_table_msg();
 
     nClientMsgsQueue = init_queue(QUEUESIZE);
-    /*enqueue(nClientQueue, create_queue_element("client-211", "MONGOL"));
-    enqueue(nClientQueue, create_queue_element("client-211", "IDEGAS"));
-    print_queue(nClientQueue);
-    dequeued = dequeue(nClientQueue);
-    cout << endl << "Prvi u redu element: " << dequeued->clientName << " " << dequeued->data << endl << endl;
-    print_queue(nClientQueue);*/
+
+    nClientWorkerINTTable = init_hash_table_int();
+    add_table_item_int(nClientWorkerINTTable, "client1", 55);
+    add_table_item_int(nClientWorkerINTTable, "client2", 120);
+    print_hash_table_int(nClientWorkerINTTable);
+    remove_table_item_int(nClientWorkerINTTable, "client1");
+    print_hash_table_int(nClientWorkerINTTable);
 
     // Inicijalizacija kritične sekcije u main funkciji
     InitializeCriticalSection(&cs);
@@ -353,6 +355,9 @@ int main()
     WaitForSingleObject(hThread1, INFINITE);
     WaitForSingleObject(hThread2, INFINITE);
     WaitForSingleObject(hThread3, INFINITE);
+
+    // Oslobodi zauzetu memoriju
+    free_hash_table_int(&nClientWorkerINTTable);
 
     // Zatvori socket i očisti Winsock
     DeleteCriticalSection(&cs);

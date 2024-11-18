@@ -8,6 +8,8 @@
 
 using namespace std;
 
+#pragma region function for SOCKET structure
+
 // Inicijalizacija djb2hash tabele
 HASH_TABLE* init_hash_table()
 {
@@ -61,7 +63,7 @@ unsigned int djb2hash(const char* key)
 }
 
 // Dodavanje liste u djb2hash tabelu
-bool add_list_table(HASH_TABLE* table, const char* key)
+bool add_list_table(HASH_TABLE * table, const char* key)
 {
     if (table == NULL)
     {
@@ -113,7 +115,7 @@ bool add_list_table(HASH_TABLE* table, const char* key)
 }
 
 // Dodavanje stavke u tabelu
-bool add_table_item(HASH_TABLE* table, const char* key, SOCKET sock)
+bool add_table_item(HASH_TABLE * table, const char* key, SOCKET sock)
 {
     if (table == NULL)
     {
@@ -155,7 +157,7 @@ bool add_table_item(HASH_TABLE* table, const char* key, SOCKET sock)
 }
 
 // Dohvatanje stavke iz djb2hash tabele
-LIST* get_table_item(HASH_TABLE* table, const char* key)
+LIST* get_table_item(HASH_TABLE * table, const char* key)
 {
     if (table == NULL)
     {
@@ -191,7 +193,7 @@ LIST* get_table_item(HASH_TABLE* table, const char* key)
 }
 
 // Provera da li ključ postoji u djb2hash tabeli
-bool has_key(HASH_TABLE* table, const char* key)
+bool has_key(HASH_TABLE * table, const char* key)
 {
     if (table == NULL)
     {
@@ -232,7 +234,7 @@ bool has_key(HASH_TABLE* table, const char* key)
 }
 
 // Uklanjanje stavke iz djb2hash tabele
-bool remove_table_item(HASH_TABLE* table, const char* key)
+bool remove_table_item(HASH_TABLE * table, const char* key)
 {
     if (table == NULL)
     {
@@ -283,7 +285,7 @@ bool remove_table_item(HASH_TABLE* table, const char* key)
 }
 
 // Oslobađanje djb2hash tabele
-bool free_hash_table(HASH_TABLE** table)
+bool free_hash_table(HASH_TABLE * *table)
 {
     if (table == NULL || *table == NULL)
     {
@@ -323,7 +325,7 @@ bool free_hash_table(HASH_TABLE** table)
 }
 
 // Ispisivanje sadržaja djb2hash tabele
-void print_hash_table(HASH_TABLE* table)
+void print_hash_table(HASH_TABLE * table)
 {
     if (table == NULL)
     {
@@ -331,7 +333,7 @@ void print_hash_table(HASH_TABLE* table)
         return;
     }
 
-    cout << "======== Socket Table ========" << endl;
+    cout << "======== Socket Hash Table ========" << endl;
     cout << "Count: " << table->count << endl << endl;
     for (int i = 0; i < TABLE_SIZE; i++)
     {
@@ -346,7 +348,9 @@ void print_hash_table(HASH_TABLE* table)
     cout << "============================" << endl;
 }
 
-#pragma region functions for the _MSG structure
+#pragma endregion
+
+#pragma region functions for the MESSAGES structure
 // Inicijalizacija djb2hash tabele
 HASH_TABLE_MSG* init_hash_table_msg()
 {
@@ -647,7 +651,7 @@ void print_hash_table_msg(HASH_TABLE_MSG* table)
         return;
     }
 
-    cout << "======== Messages Table ========" << endl;
+    cout << "======== Messages Hash Table ========" << endl;
     cout << "Count: " << table->count << endl << endl;
     for (int i = 0; i < TABLE_SIZE; i++)
     {
@@ -718,4 +722,229 @@ void convert_to_string(HASH_TABLE_MSG* table, char* ret, size_t size)
         }
     }
 }
+#pragma endregion
+
+#pragma region functions for the INTEGER structure
+
+// Inicijalizacija hash tabele
+HASH_TABLE_INT* init_hash_table_int() {
+    HASH_TABLE_INT* table = (HASH_TABLE_INT*)malloc(sizeof(HASH_TABLE_INT));
+    if (table == NULL) {
+        printf("init_hash_table_int() failed: out of memory\n");
+        return NULL;
+    }
+    table->count = 0;
+
+    table->items = (HASH_ITEM_INT*)malloc(sizeof(HASH_ITEM_INT) * TABLE_SIZE);
+    if (table->items == NULL) {
+        printf("init_hash_table_int() failed: out of memory\n");
+        free(table);
+        return NULL;
+    }
+
+    for (int i = 0; i < TABLE_SIZE; i++) {
+        table->items[i].key = NULL;
+    }
+
+    InitializeCriticalSection(&table->cs);
+
+    return table;
+}
+
+// Dodavanje stavke u hash tabelu
+bool add_table_item_int(HASH_TABLE_INT* table, const char* key, int value) {
+    if (table == NULL) {
+        printf("add_table_item_int() failed: table is NULL\n");
+        return false;
+    }
+
+    if (key == NULL) {
+        printf("add_table_item_int() failed: key is NULL\n");
+        return false;
+    }
+
+    if (strlen(key) > MAX_KEY_LEN) {
+        printf("add_table_item_int() failed: key is too long\n");
+        return false;
+    }
+
+    EnterCriticalSection(&table->cs);
+
+    int index = djb2hash(key);
+    if (index == -1) {
+        printf("add_table_item_int() failed: djb2hash() failed\n");
+        LeaveCriticalSection(&table->cs);
+        return false;
+    }
+
+    HASH_ITEM_INT* item = &table->items[index];
+    if (item->key != NULL) {
+        free(item->key);
+    }
+
+    item->key = (char*)malloc(strlen(key) + 1);
+    if (item->key == NULL) {
+        printf("add_table_item_int() failed: out of memory\n");
+        LeaveCriticalSection(&table->cs);
+        return false;
+    }
+
+    strcpy_s(item->key, strlen(key) + 1, key);
+    item->value = value;
+    table->count++;
+
+    LeaveCriticalSection(&table->cs);
+    return true;
+}
+
+// Dohvatanje stavke iz hash tabele
+HASH_ITEM_INT* get_table_item_int(HASH_TABLE_INT* table, const char* key) {
+    if (table == NULL) {
+        printf("get_table_item_int() failed: table is NULL\n");
+        return NULL;
+    }
+
+    if (key == NULL) {
+        printf("get_table_item_int() failed: key is NULL\n");
+        return NULL;
+    }
+
+    if (strlen(key) > MAX_KEY_LEN) {
+        printf("get_table_item_int() failed: key is too long\n");
+        return NULL;
+    }
+
+    EnterCriticalSection(&table->cs);
+
+    int index = djb2hash(key);
+    if (index == -1) {
+        printf("get_table_item_int() failed: djb2hash() failed\n");
+        LeaveCriticalSection(&table->cs);
+        return NULL;
+    }
+
+    HASH_ITEM_INT* item = &table->items[index];
+    LeaveCriticalSection(&table->cs);
+    return item;
+}
+
+// Provera da li ključ postoji u hash tabeli
+bool has_key_int(HASH_TABLE_INT* table, const char* key) {
+    if (table == NULL) {
+        printf("has_key_int() failed: table is NULL\n");
+        return false;
+    }
+
+    if (key == NULL) {
+        printf("has_key_int() failed: key is NULL\n");
+        return false;
+    }
+
+    if (strlen(key) > MAX_KEY_LEN) {
+        printf("has_key_int() failed: key is too long\n");
+        return false;
+    }
+
+    EnterCriticalSection(&table->cs);
+
+    int index = djb2hash(key);
+    if (index == -1) {
+        printf("has_key_int() failed: djb2hash() failed\n");
+        LeaveCriticalSection(&table->cs);
+        return false;
+    }
+
+    HASH_ITEM_INT* item = &table->items[index];
+    LeaveCriticalSection(&table->cs);
+    return (item->key != NULL);
+}
+
+// Uklanjanje stavke iz hash tabele
+bool remove_table_item_int(HASH_TABLE_INT* table, const char* key) {
+    if (table == NULL) {
+        printf("remove_table_item_int() failed: table is NULL\n");
+        return false;
+    }
+
+    if (key == NULL) {
+        printf("remove_table_item_int() failed: key is NULL\n");
+        return false;
+    }
+
+    if (strlen(key) > MAX_KEY_LEN) {
+        printf("remove_table_item_int() failed: key is too long\n");
+        return false;
+    }
+
+    EnterCriticalSection(&table->cs);
+
+    int index = djb2hash(key);
+    if (index == -1) {
+        printf("remove_table_item_int() failed: djb2hash() failed\n");
+        LeaveCriticalSection(&table->cs);
+        return false;
+    }
+
+    HASH_ITEM_INT* item = &table->items[index];
+    if (item->key == NULL || strcmp(item->key, key) != 0) {
+        printf("remove_table_item_int() failed: key not found\n");
+        LeaveCriticalSection(&table->cs);
+        return false;
+    }
+
+    free(item->key);
+    item->key = NULL;
+    item->value = 0;
+    table->count--;
+
+    LeaveCriticalSection(&table->cs);
+    return true;
+}
+
+// Oslobađanje hash tabele
+bool free_hash_table_int(HASH_TABLE_INT** table) {
+    if (table == NULL || *table == NULL) {
+        printf("free_hash_table_int() failed: table is NULL\n");
+        return true;
+    }
+
+    EnterCriticalSection(&(*table)->cs);
+
+    for (int i = 0; i < TABLE_SIZE; i++) {
+        if ((*table)->items[i].key != NULL) {
+            free((*table)->items[i].key);
+            (*table)->items[i].key = NULL;
+        }
+    }
+
+    LeaveCriticalSection(&(*table)->cs);
+    DeleteCriticalSection(&(*table)->cs);
+
+    free((*table)->items);
+    (*table)->items = NULL;
+    free(*table);
+    *table = NULL;
+
+    return true;
+}
+
+// Ispisivanje sadržaja hash tabele
+void print_hash_table_int(HASH_TABLE_INT* table) {
+    if (table == NULL) {
+        printf("print_hash_table_int(): table is NULL\n");
+        return;
+    }
+
+    printf("======== Integer Hash Table ========\n");
+    printf("Count: %d\n", table->count);
+    for (int i = 0; i < TABLE_SIZE; i++) {
+        if (table->items[i].key != NULL) {
+            printf("Index: %d\n", i);
+            printf("Key: %s\n", table->items[i].key);
+            printf("Value: %d\n", table->items[i].value);
+        }
+    }
+    printf("============================\n");
+}
+
 #pragma endregion

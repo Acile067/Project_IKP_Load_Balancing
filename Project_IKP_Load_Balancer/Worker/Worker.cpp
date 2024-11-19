@@ -212,7 +212,20 @@ int main()
 
     cout << endl;
     print_hash_table_msg(nClientWorkerMSGTable);
+    
+    int receivedPort = 0;
+    char portBuffer[16] = { 0, };
+    int bytesReceived = recv(nWorkerSocket, portBuffer, sizeof(portBuffer) - 1, 0);
+    if (bytesReceived > 0) {
+        portBuffer[bytesReceived] = '\0';
+        char* validStart = portBuffer;
+        while (*validStart == '\0') validStart++;
+        receivedPort = atoi(validStart);
+        printf("Received port: %d\n", receivedPort);
+    }
 
+    
+    
 
     HANDLE hThread1 = CreateThread(NULL, 0, ProcessLBMessage, NULL, 0, NULL);
 

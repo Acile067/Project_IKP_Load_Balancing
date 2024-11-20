@@ -14,9 +14,62 @@ using namespace std;
 
 int nWorkerSocket;
 struct sockaddr_in srv;
+SOCKET listeningSocket;
+struct sockaddr_in listeningAddress;
+fd_set fr, fw, fe;  //Read,Write,Exception
+int nMaxFd;
 
 HASH_TABLE_MSG* nClientWorkerMSGTable;
 
+
+void StartListeningOnPort(int port) {
+    
+    // 1. Kreirajte novu uticnicu
+    listeningSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (listeningSocket == INVALID_SOCKET) {
+        cout << "Error creating socket: " << WSAGetLastError() << endl;
+        return;
+    }
+
+    // 2. Postavite adresu i port za slušanje
+    listeningAddress.sin_family = AF_INET;
+    listeningAddress.sin_port = htons(port);
+    listeningAddress.sin_addr.s_addr = INADDR_ANY; 
+    memset(&(listeningAddress.sin_zero), 0, 8);
+
+    // 3. Povežite uticnicu sa adresom i portom
+    if (bind(listeningSocket, (struct sockaddr*)&listeningAddress, sizeof(listeningAddress)) == SOCKET_ERROR) {
+        cout << "Error binding socket: " << WSAGetLastError() << endl;
+        closesocket(listeningSocket);
+        return;
+    }
+
+    // 4. Omogućite slušanje
+    if (listen(listeningSocket, SOMAXCONN) == SOCKET_ERROR) {
+        cout << "Error listening on socket: " << WSAGetLastError() << endl;
+        closesocket(listeningSocket);
+        return;
+    }
+
+    cout << "Listening on port " << port << "..." << endl;
+
+    // 5. Prihvatite dolazne konekcije u petlji
+    /*while (true) {
+        struct sockaddr_in clientAddress;
+        int clientAddressLen = sizeof(clientAddress);
+        SOCKET clientSocket = accept(listeningSocket, (struct sockaddr*)&clientAddress, &clientAddressLen);
+        if (clientSocket == INVALID_SOCKET) {
+            cout << "Error accepting connection: " << WSAGetLastError() << endl;
+            continue;
+        }
+
+        cout << "New connection accepted from " << inet_ntoa(clientAddress.sin_addr) << ":" << ntohs(clientAddress.sin_port) << endl;
+
+        // Ovdje možete dodati kod za komunikaciju sa klijentom
+        send(clientSocket, "Welcome to Worker!", 19, 0);
+        closesocket(clientSocket);
+    }*/
+}
 // Funkcija za podelu stringa po delimiteru
 int split_string(const char* str, char delimiter, char output[MAX_TOKENS][MAX_TOKEN_LEN]) {
     int count = 0;
@@ -74,7 +127,7 @@ void ParseAndAddToHashTable(char* msg)
 {
     if (msg == NULL || strlen(msg) == 0)
     {
-        cout << "Invalid message!" << endl;                                     //TODO treba skontati zasto ovde upadne prvi put Zato je prva poruka prazna?
+        cout << "Invalid message!" << endl;                                     
         return;
     }
 
@@ -145,6 +198,46 @@ DWORD WINAPI ProcessLBMessage(LPVOID lpParam)
         }
 
     }
+}
+
+void ProcessTheNewRequest()
+{
+    // New Connection Request
+    if (FD_ISSET(listeningSocket, &fr)) {
+        int nLen = sizeof(struct sockaddr);
+        int nClientSocket = accept(listeningSocket, NULL, &nLen);
+        if (nClientSocket > 0) {
+            char idBuffer[256] = { 0 };
+            recv(nClientSocket, idBuffer, 256, 0);  // rcv worker_hello
+
+            if (strcmp(idBuffer, "WORKERHELLO") == 0) {
+                cout << endl << "WORKER CONECTED";
+            }
+            else 
+            {
+                cout << "Unknown connection type" << endl;
+                closesocket(nClientSocket);
+            }
+        }
+    }
+}
+
+
+DWORD WINAPI AcceptConnectionsThread(LPVOID lpParam) {
+    while (true) {
+        FD_ZERO(&fr);
+        FD_ZERO(&fe);
+        FD_SET(listeningSocket, &fr);
+        FD_SET(listeningSocket, &fe);
+
+        struct timeval tv;
+        tv.tv_sec = 1;
+        int nRet = select(nMaxFd + 1, &fr, NULL, &fe, &tv);
+        if (nRet > 0 && FD_ISSET(listeningSocket, &fr)) {
+            ProcessTheNewRequest();
+        }
+    }
+    return 0;
 }
 
 int main()
@@ -224,12 +317,16 @@ int main()
         printf("Received port: %d\n", receivedPort);
     }
 
-    
+    if (receivedPort > 0) {
+        StartListeningOnPort(receivedPort);
+    }
     
 
     HANDLE hThread1 = CreateThread(NULL, 0, ProcessLBMessage, NULL, 0, NULL);
+    HANDLE hThread2 = CreateThread(NULL, 0, AcceptConnectionsThread, NULL, 0, NULL);
 
     WaitForSingleObject(hThread1, INFINITE);
+    WaitForSingleObject(hThread2, INFINITE);
 
     cout << endl << "Press any to exit... Worker is Running";
     char exit = getchar();

@@ -14,11 +14,9 @@ int nSocket;
 struct sockaddr_in srv;
 fd_set fr, fw, fe;  //Read,Write,Exception
 int nMaxFd;
-int workerPort = 5220;
 
 HASH_TABLE* nClientWorkerSocketTable;
 HASH_TABLE_MSG* nClientWorkerMSGTable;
-HASH_TABLE_INT* nWorkerPortTable;
 
 CRITICAL_SECTION cs;  // Dodaj kritičnu sekciju
 
@@ -63,12 +61,6 @@ void ProcessNewMessageOrDisconnectWorker(int nWorkerSocket)
                 if (worker->data == nWorkerSocket) {
                     if (remove_from_list(workers, nIndexCnt)) {
                         print_hash_table(nClientWorkerSocketTable);
-                        char hellper[50];
-                        snprintf(hellper, sizeof(hellper), "worker-%d", nWorkerSocket);
-                        const char* workerName = hellper;
-                        remove_table_item_int(nWorkerPortTable, workerName);
-                        print_hash_table_int(nWorkerPortTable);
-
                     }
                     break; // Moze se prekinuti petlja nakon brisanja
                 }
@@ -158,27 +150,7 @@ void ProcessTheNewRequest()
                 cout << "Added a worker to the table with socket: " << nClientSocket << endl;
                 send(nClientSocket, "SERVER: You are connected as WORKER", 36, 0);
                 print_hash_table(nClientWorkerSocketTable);
-
-                char hellper[50];
-                snprintf(hellper, sizeof(hellper), "worker-%d", nClientSocket);
-                const char* workerName = hellper;
-
-                add_table_item_int(nWorkerPortTable, workerName, workerPort);
-                print_hash_table_int(nWorkerPortTable);
-                
                 RedistributeDataToWorker(nClientSocket);
-
-                
-                char portString[16];
-                sprintf_s(portString, sizeof(portString), "%d", workerPort);
-                int bytesSent = send(nClientSocket, portString, strlen(portString), 0);
-                if (bytesSent == SOCKET_ERROR) {
-                    printf("Error while sending port: %d\n", WSAGetLastError());
-                }
-                else {
-                    printf("String being sent: '%s', Length: %d, Bytes sent: %d\n", portString, (int)strlen(portString), bytesSent);
-                    workerPort++;
-                }
             }
             else {
                 cout << "Unknown connection type" << endl;
@@ -336,13 +308,6 @@ int main()
 
     nClientMsgsQueue = init_queue(QUEUESIZE);
 
-    nWorkerPortTable = init_hash_table_int();
-    /*add_table_item_int(nClientWorkerINTTable, "client1", 55);
-    add_table_item_int(nClientWorkerINTTable, "client2", 120);
-    print_hash_table_int(nClientWorkerINTTable);
-    remove_table_item_int(nClientWorkerINTTable, "client1");
-    print_hash_table_int(nClientWorkerINTTable);*/
-
     // Inicijalizacija kritične sekcije u main funkciji
     InitializeCriticalSection(&cs);
 
@@ -382,9 +347,6 @@ int main()
     WaitForSingleObject(hThread1, INFINITE);
     WaitForSingleObject(hThread2, INFINITE);
     WaitForSingleObject(hThread3, INFINITE);
-
-    // Oslobodi zauzetu memoriju
-    free_hash_table_int(&nWorkerPortTable);
 
     // Zatvori socket i očisti Winsock
     DeleteCriticalSection(&cs);

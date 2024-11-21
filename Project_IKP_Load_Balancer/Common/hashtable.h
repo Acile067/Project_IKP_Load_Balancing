@@ -7,7 +7,6 @@
 #define TABLE_SIZE 1000
 #define MAX_KEY_LEN 128 + 1
 
-#pragma region Hashtable structure
 typedef struct _HASH_ITEM
 {
     char* key;
@@ -20,9 +19,7 @@ typedef struct _HASH_TABLE
     HASH_ITEM* items;
     int count;
 } HASH_TABLE;
-#pragma endregion
 
-#pragma region HashtabelMSG structure
 typedef struct _HASH_ITEM_MSG
 {
     char* key;
@@ -35,24 +32,6 @@ typedef struct _HASH_TABLE_MSG
     _HASH_ITEM_MSG* items;
     int count;
 } HASH_TABLE_MSG;
-#pragma endregion
-
-#pragma region HashtabelINT structure
-typedef struct _HASH_ITEM_INT
-{
-    char* key;
-    int value;
-} HASH_ITEM_INT;
-
-typedef struct _HASH_TABLE_INT
-{
-    CRITICAL_SECTION cs;
-    HASH_ITEM_INT* items;
-    int count;
-} HASH_TABLE_INT;
-#pragma endregion
-
-#pragma region Headers for the Hastable structure
 
 /// <summary>
 /// Initialize hash table
@@ -122,9 +101,7 @@ bool free_hash_table(HASH_TABLE** table);
 /// <param name="table"> - table to print</param>
 void print_hash_table(HASH_TABLE* table);
 
-#pragma endregion
-
-#pragma region headers for the MESSAGES structure
+#pragma region headers for the _MSG structure
 
 HASH_TABLE_MSG* init_hash_table_msg();
 bool add_table_item_msg(HASH_TABLE_MSG* table, const char* key, const char* data);
@@ -135,17 +112,5 @@ bool remove_table_item_msg(HASH_TABLE_MSG* table, const char* key);
 bool free_hash_table_msg(HASH_TABLE_MSG** table);
 void print_hash_table_msg(HASH_TABLE_MSG* table);
 void convert_to_string(HASH_TABLE_MSG* table, char* ret, size_t size);
-
-#pragma endregion
-
-#pragma region headers for the INTEGER structure
-
-HASH_TABLE_INT* init_hash_table_int();
-bool add_table_item_int(HASH_TABLE_INT* table, const char* key, int value);
-HASH_ITEM_INT* get_table_item_int(HASH_TABLE_INT* table, const char* key);
-bool has_key_int(HASH_TABLE_INT* table, const char* key);
-bool remove_table_item_int(HASH_TABLE_INT* table, const char* key);
-bool free_hash_table_int(HASH_TABLE_INT** table);
-void print_hash_table_int(HASH_TABLE_INT* table);
 
 #pragma endregion

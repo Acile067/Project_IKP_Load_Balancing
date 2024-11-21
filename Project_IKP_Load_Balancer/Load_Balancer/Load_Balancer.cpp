@@ -15,6 +15,10 @@ struct sockaddr_in srv;
 fd_set fr, fw, fe;  //Read,Write,Exception
 int nMaxFd;
 
+const int MAX_PORTS = 100;  // Maksimalni broj portova koje ćemo čuvati
+uint16_t receivedPorts[MAX_PORTS];
+int currentIndex = 0;
+
 HASH_TABLE* nClientWorkerSocketTable;
 HASH_TABLE_MSG* nClientWorkerMSGTable;
 
@@ -25,6 +29,40 @@ QUEUEELEMENT* dequeued;
 
 int lastAssignedWorker = -1;
 
+void sendPorts(SOCKET nClientSocket, uint16_t* ports, size_t portsCount) {
+    char buffer[1024] = { 0 };  // Pretpostavljamo da broj portova neće preći 1024 karaktera
+    int offset = 0;
+
+    // Formatiraj portove u obliku "port1:port2:port3:"
+    for (size_t i = 0; i < portsCount; ++i) {
+        if (ports[i] == 0) {
+            continue;  // Preskoči portove koji su 0
+        }
+        // Dodaj port u buffer koristeći sprintf_s
+        int n = sprintf_s(buffer + offset, sizeof(buffer) - offset, "%u", ntohs(ports[i]));  // Prebacimo port u host byte order
+        if (n < 0 || n >= sizeof(buffer) - offset) {
+            // Greška u formiranju stringa
+            printf("Error formatting port number.\n");
+            return;
+        }
+        offset += n;
+
+        // Dodaj dvotačku osim posle poslednjeg porta
+        
+        buffer[offset++] = '?';
+        
+    }
+
+    // Pošaljite string sa portovima
+    int nRet = send(nClientSocket, buffer, offset, 0);
+    if (nRet <= 0) {
+        printf("Error sending ports.\n");
+    }
+    else {
+        cout << endl;
+        printf("Ports sent successfully: %s\n", buffer);
+    }
+}
 
 void RedistributeDataToWorker(int nWorkerSocket)
 {
@@ -151,6 +189,25 @@ void ProcessTheNewRequest()
                 send(nClientSocket, "SERVER: You are connected as WORKER", 36, 0);
                 print_hash_table(nClientWorkerSocketTable);
                 RedistributeDataToWorker(nClientSocket);
+
+                uint16_t receivedPort;
+                
+                int nRet = recv(nClientSocket, (char*)&receivedPort, sizeof(receivedPort), 0);
+                if (nRet <= 0) {
+                    cout << "Error receiving port." << endl;
+                    closesocket(nClientSocket);
+                    return;
+                }
+                receivedPort = ntohs(receivedPort);
+
+                if (currentIndex < MAX_PORTS) {
+                    // Dodaj port u niz
+                    receivedPorts[currentIndex] = receivedPort;
+                    currentIndex++;
+                }
+
+                cout << "Received port: " << receivedPort << endl;
+
             }
             else {
                 cout << "Unknown connection type" << endl;
@@ -286,6 +343,9 @@ DWORD WINAPI SendMassagesToWorkersRoundRobin(LPVOID lpParam) {
                         snprintf(message, sizeof(message), "%s:%s", dequeued->clientName, dequeued->data);
 
                         SendMsgToWorker(nWorkerSocket, message);  // Send the data to this worker
+                        size_t portsCount = currentIndex;
+                        sendPorts(nWorkerSocket, receivedPorts, portsCount);
+
                         break;
                     }
                     nIndex++;
@@ -293,7 +353,6 @@ DWORD WINAPI SendMassagesToWorkersRoundRobin(LPVOID lpParam) {
                 }
             }
             LeaveCriticalSection(&cs);
-
         }
     }
 }

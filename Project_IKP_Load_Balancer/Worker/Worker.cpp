@@ -14,10 +14,33 @@ using namespace std;
 
 int nWorkerSocket;
 struct sockaddr_in srv;
+SOCKET listeningSocket;
+struct sockaddr_in listeningAddress;
 
 HASH_TABLE_MSG* nClientWorkerMSGTable;
 
+void receivePorts(char* msg) {
+    if (msg == NULL || strlen(msg) == 0) {
+        printf("Invalid message!\n");
+        return;
+    }
 
+    // Razdvajanje portova pomoću strtok_s
+    char* context = NULL;
+    char* port = strtok_s(msg, "?", &context);  // Prvi port
+
+    while (port != NULL) {
+        uint16_t portNum = (uint16_t)atoi(port);  // Pretvaranje u broj
+        if (portNum != 0)
+        {
+            printf("Received port: %u\n", portNum);
+        }
+        
+
+        // Uzmite sledeći port
+        port = strtok_s(NULL, "?", &context);
+    }
+}
 
 // Funkcija za podelu stringa po delimiteru
 int split_string(const char* str, char delimiter, char output[MAX_TOKENS][MAX_TOKEN_LEN]) {
@@ -80,26 +103,36 @@ void ParseAndAddToHashTable(char* msg)
         return;
     }
 
-    char* context = NULL;
-    char* key = strtok_s(msg, ":", &context); 
-    char* value = strtok_s(NULL, ":", &context);
-
-    if (key != NULL && value != NULL)
-    {
-        cout << "Key: " << key << ", Value: " << value << endl;
-
-        // Dodajte ključ i vrednost u hash tabelu
-        if (!get_table_item_msg(nClientWorkerMSGTable, key))
-        {
-            if (add_list_table_msg(nClientWorkerMSGTable, key)) {}
+    int colonCount = 0;
+    for (int i = 0; msg[i] != '\0'; i++) {
+        if (msg[i] == ':') {
+            colonCount++;
+            break;
         }
-        if (add_table_item_msg(nClientWorkerMSGTable, key, value)) {}
-
-        print_hash_table_msg(nClientWorkerMSGTable);
     }
-    else
-    {
-        cout << "Message format is invalid!" << endl;
+
+    if (colonCount  == 0) {
+        // Pozovi funkciju za primanje portova
+        receivePorts(msg); // Ovo će obraditi poruke koje sadrže portove
+    }
+    else {
+        // Inače, obradite kao običnu poruku
+        char* context = NULL;
+        char* key = strtok_s(msg, ":", &context);
+        char* value = strtok_s(NULL, ":", &context);
+
+        if (key != NULL && value != NULL) {
+            // Dodajte ključ i vrednost u hash tabelu
+            if (!get_table_item_msg(nClientWorkerMSGTable, key)) {
+                if (add_list_table_msg(nClientWorkerMSGTable, key)) {}
+            }
+            if (add_table_item_msg(nClientWorkerMSGTable, key, value)) {}
+
+            print_hash_table_msg(nClientWorkerMSGTable);
+        }
+        else {
+            cout << "Message format is invalid!" << endl;
+        }
     }
 }
 
@@ -146,6 +179,31 @@ DWORD WINAPI ProcessLBMessage(LPVOID lpParam)
             
         }
 
+    }
+}
+
+DWORD WINAPI AcceptWorkerConnections(LPVOID lpParam) {
+    SOCKET listeningSocket = *(SOCKET*)lpParam;
+
+    while (true) {
+        struct sockaddr_in workerAddr;
+        int workerAddrSize = sizeof(workerAddr);
+
+        SOCKET workerSocket = accept(listeningSocket, (struct sockaddr*)&workerAddr, &workerAddrSize);
+        if (workerSocket == INVALID_SOCKET) {
+            cout << "Error accepting Worker connection." << endl;
+            continue;
+        }
+
+        cout << "New Worker connected: " << workerSocket << endl;
+
+        // Dodajte u lokalnu tabelu povezivanja (ako je potrebno)
+        // ili odmah obradite poruku od drugog Worker-a.
+        char buffer[256] = { 0 };
+        recv(workerSocket, buffer, sizeof(buffer), 0);
+        cout << "Message from connected Worker: " << buffer << endl;
+
+        // Logika za obradu dolaznih podataka od Workera.
     }
 }
 
@@ -214,10 +272,44 @@ int main()
 
     cout << endl;
     print_hash_table_msg(nClientWorkerMSGTable);
+
+    listeningSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (listeningSocket == INVALID_SOCKET) {
+        cout << "Failed to create listening socket." << endl;
+        WSACleanup();
+        return 1;
+    }
+
+    listeningAddress.sin_family = AF_INET;
+    listeningAddress.sin_port = 0; // Automatski bira slobodan port
+    listeningAddress.sin_addr.s_addr = INADDR_ANY;
+
+    if (bind(listeningSocket, (struct sockaddr*)&listeningAddress, sizeof(listeningAddress)) == SOCKET_ERROR) {
+        cout << "Failed to bind listening socket." << endl;
+        closesocket(listeningSocket);
+        WSACleanup();
+        return 1;
+    }
+
+    if (listen(listeningSocket, SOMAXCONN) == SOCKET_ERROR) {
+        cout << "Failed to listen on socket." << endl;
+        closesocket(listeningSocket);
+        WSACleanup();
+        return 1;
+    }
+
+    int addrLen = sizeof(listeningAddress);
+    getsockname(listeningSocket, (struct sockaddr*)&listeningAddress, &addrLen);
+    cout << "Worker is now listening for connections from other Workers:" << ntohs(listeningAddress.sin_port) << endl;
+
+    uint16_t portToSend = htons(listeningAddress.sin_port);
+    send(nWorkerSocket, (char*)&portToSend, sizeof(portToSend), 0);
     
     HANDLE hThread1 = CreateThread(NULL, 0, ProcessLBMessage, NULL, 0, NULL);
+    HANDLE hWorkerConnectionThread = CreateThread(NULL, 0, AcceptWorkerConnections, &listeningSocket, 0, NULL);
 
     WaitForSingleObject(hThread1, INFINITE);
+    WaitForSingleObject(hWorkerConnectionThread, INFINITE);
 
     cout << endl << "Press any to exit... Worker is Running";
     char exit = getchar();

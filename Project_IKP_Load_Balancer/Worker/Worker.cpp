@@ -6,11 +6,13 @@
 #include "../Common/hashtable.h"
 #include <sstream>
 #include <cstring>
+#include"../Common/queueLBtoWorker.h"
 using namespace std;
 #define PORT 5059
 #define MAX_TOKENS 100
 #define MAX_TOKEN_LEN 255
 #define _CRT_SECURE_NO_WARNINGS
+#define QUEUESIZE 20
 
 int nWorkerSocket;
 struct sockaddr_in srv;
@@ -19,6 +21,11 @@ struct sockaddr_in listeningAddress;
 int yourPort = 0;
 
 HASH_TABLE_MSG* nClientWorkerMSGTable;
+
+QUEUE* nClientMsgsQueue;
+QUEUEELEMENT* dequeued;
+
+CRITICAL_SECTION cs;
 
 void connectAndSendToPorts(uint16_t* ports, size_t portCount, const char* message) {
     for (size_t i = 0; i < portCount; ++i) {
@@ -77,7 +84,7 @@ void receivePorts(char* msg) {
         if (portNum != 0)
         {
             if (portCount < MAX_PORTS && portNum!= yourPort) {
-                ports[portCount++] = portNum;  // Dodaj port u niz
+                ports[portCount++] = ntohs(portNum);  // Dodaj port u niz
                 printf("Received port: %u\n", portNum);
             }
             else if(portNum != yourPort){
@@ -89,8 +96,14 @@ void receivePorts(char* msg) {
         port = strtok_s(NULL, "!", &context);
     }
 
-    const char* message = "Hello, Worker!";  // Poruka koja se šalje
-    //connectAndSendToPorts(ports, portCount, message);
+    EnterCriticalSection(&cs);
+    dequeued = dequeue(nClientMsgsQueue);
+    LeaveCriticalSection(&cs);
+
+    char message[256]; // Ensure the buffer is large enough
+    snprintf(message, sizeof(message), "%s:%s", dequeued->clientName, dequeued->data);
+
+    connectAndSendToPorts(ports, portCount, message);
 
 }
 
@@ -172,6 +185,10 @@ void ParseAndAddToHashTable(char* msg)
         char* context = NULL;
         char* key = strtok_s(msg, ":", &context);
         char* value = strtok_s(NULL, ":", &context);
+
+        EnterCriticalSection(&cs);
+        enqueue(nClientMsgsQueue, create_queue_element(key, value));
+        LeaveCriticalSection(&cs);
 
         if (key != NULL && value != NULL) {
             // Dodajte ključ i vrednost u hash tabelu
@@ -255,12 +272,29 @@ DWORD WINAPI AcceptWorkerConnections(LPVOID lpParam) {
         recv(workerSocket, buffer, sizeof(buffer), 0);
         cout << "Message from connected Worker: " << buffer << endl;
 
-        // Logika za obradu dolaznih podataka od Workera.
+        char* context = NULL;
+        char* key = strtok_s(buffer, ":", &context);
+        char* value = strtok_s(NULL, ":", &context);
+
+        if (key != NULL && value != NULL) {
+            // Dodajte ključ i vrednost u hash tabelu
+            if (!get_table_item_msg(nClientWorkerMSGTable, key)) {
+                if (add_list_table_msg(nClientWorkerMSGTable, key)) {}
+            }
+            if (add_table_item_msg(nClientWorkerMSGTable, key, value)) {}
+
+            print_hash_table_msg(nClientWorkerMSGTable);
+        }
+        else {
+            cout << "Message format is invalid!" << endl;
+        }
     }
 }
 
 int main()
 {
+    InitializeCriticalSection(&cs);
+    nClientMsgsQueue = init_queue(QUEUESIZE);
     int nRet = 0;
     //Init WSA 
     WSADATA ws;

@@ -20,11 +20,53 @@ int yourPort = 0;
 
 HASH_TABLE_MSG* nClientWorkerMSGTable;
 
+void connectAndSendToPorts(uint16_t* ports, size_t portCount, const char* message) {
+    for (size_t i = 0; i < portCount; ++i) {
+        SOCKET workerSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if (workerSocket == INVALID_SOCKET) {
+            printf("Failed to create socket for port %u\n", ntohs(ports[i]));
+            continue;
+        }
+
+        // Podesite adresu za konekciju
+        struct sockaddr_in workerAddr;
+        workerAddr.sin_family = AF_INET;
+        workerAddr.sin_port = ports[i];  // Port je već u network byte order
+        workerAddr.sin_addr.s_addr = inet_addr("127.0.0.1");  // Pretpostavljamo lokalni radnik
+
+        // Pokušajte da se povežete
+        if (connect(workerSocket, (struct sockaddr*)&workerAddr, sizeof(workerAddr)) == SOCKET_ERROR) {
+            printf("Failed to connect to port %u\n", ntohs(ports[i]));
+            closesocket(workerSocket);
+            continue;
+        }
+
+        printf("Connected to port %u\n", ntohs(ports[i]));
+
+        // Pošaljite poruku
+        int nRet = send(workerSocket, message, strlen(message), 0);
+        if (nRet == SOCKET_ERROR) {
+            printf("Failed to send message to port %u\n", ntohs(ports[i]));
+        }
+        else {
+            printf("Message sent to port %u: %s\n", ntohs(ports[i]), message);
+        }
+
+        // Zatvorite konekciju
+        closesocket(workerSocket);
+        printf("Disconnected from port %u\n", ntohs(ports[i]));
+    }
+}
+
 void receivePorts(char* msg) {
     if (msg == NULL || strlen(msg) == 0) {
         printf("Invalid message!\n");
         return;
     }
+
+    const size_t MAX_PORTS = 100;  // Maksimalni broj portova
+    uint16_t ports[MAX_PORTS];    // Niz za čuvanje portova
+    size_t portCount = 0;         // Broj primljenih portova
 
     // Razdvajanje portova pomoću strtok_s
     char* context = NULL;
@@ -34,15 +76,22 @@ void receivePorts(char* msg) {
         uint16_t portNum = (uint16_t)atoi(port);  // Pretvaranje u broj
         if (portNum != 0)
         {
-            if (uint16_t(yourPort) == (portNum))
-                cout<< endl << "YourePort!" << endl;
-            printf("Received port: %u\n", portNum);
+            if (portCount < MAX_PORTS && portNum!= yourPort) {
+                ports[portCount++] = portNum;  // Dodaj port u niz
+                printf("Received port: %u\n", portNum);
+            }
+            else if(portNum != yourPort){
+                printf("Port array is full, cannot store more ports.\n");
+                break;
+            }         
         }
-        
-
         // Uzmite sledeći port
         port = strtok_s(NULL, "!", &context);
     }
+
+    const char* message = "Hello, Worker!";  // Poruka koja se šalje
+    //connectAndSendToPorts(ports, portCount, message);
+
 }
 
 // Funkcija za podelu stringa po delimiteru

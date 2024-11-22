@@ -26,14 +26,19 @@ bool isValidMessage(const char* message) {
     // Prolazimo kroz svaki karakter u poruci
     for (size_t i = 0; i < strlen(message); ++i) {
         char c = message[i];
+
+        // Proveravamo da li je karakter specijalan
+        if (c == '?' || c == '!' || c == ':' || c == ';') {
+            return false; // Ako pronađemo specijalan karakter, odmah vraćamo false
+        }
+
         // Ako je karakter alfanumerički (slovo ili broj), označavamo kao validnu poruku
-        if (isalnum(c)) {
+        if (isalnum(c) && c != ' ') {
             hasAlphanumeric = true;
-            break;  // Nema potrebe da dalje proveravamo
         }
     }
 
-    // Ako nije pronađen nijedan alfanumerički karakter, poruka nije validna
+    // Ako nije pronađen nijedan alfanumerički karakter ili je pronađen specijalan karakter, poruka nije validna
     return hasAlphanumeric;
 }
 

@@ -49,8 +49,16 @@ void sendPorts(SOCKET nClientSocket, uint16_t* ports, size_t portsCount) {
 
         // Dodaj dvotačku osim posle poslednjeg porta
         
-        buffer[offset++] = '?';
+        buffer[offset++] = '!';
         
+    }
+
+    if (offset < sizeof(buffer)) {
+        buffer[offset] = '\0';
+    }
+    else {
+        printf("Buffer overflow detected when adding null terminator.\n");
+        return;
     }
 
     // Pošaljite string sa portovima

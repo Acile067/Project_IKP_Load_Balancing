@@ -16,6 +16,7 @@ int nWorkerSocket;
 struct sockaddr_in srv;
 SOCKET listeningSocket;
 struct sockaddr_in listeningAddress;
+int yourPort = 0;
 
 HASH_TABLE_MSG* nClientWorkerMSGTable;
 
@@ -27,18 +28,20 @@ void receivePorts(char* msg) {
 
     // Razdvajanje portova pomoću strtok_s
     char* context = NULL;
-    char* port = strtok_s(msg, "?", &context);  // Prvi port
+    char* port = strtok_s(msg, "!", &context);  // Prvi port
 
     while (port != NULL) {
         uint16_t portNum = (uint16_t)atoi(port);  // Pretvaranje u broj
         if (portNum != 0)
         {
+            if (uint16_t(yourPort) == (portNum))
+                cout<< endl << "YourePort!" << endl;
             printf("Received port: %u\n", portNum);
         }
         
 
         // Uzmite sledeći port
-        port = strtok_s(NULL, "?", &context);
+        port = strtok_s(NULL, "!", &context);
     }
 }
 
@@ -301,6 +304,7 @@ int main()
     int addrLen = sizeof(listeningAddress);
     getsockname(listeningSocket, (struct sockaddr*)&listeningAddress, &addrLen);
     cout << "Worker is now listening for connections from other Workers:" << ntohs(listeningAddress.sin_port) << endl;
+    yourPort = ntohs(listeningAddress.sin_port);
 
     uint16_t portToSend = htons(listeningAddress.sin_port);
     send(nWorkerSocket, (char*)&portToSend, sizeof(portToSend), 0);

@@ -154,7 +154,7 @@ void ProcessNewMessage(int nClientSocket)
     }
     else {
         cout << endl << "CLIENT SAY: " << buffer;
-        send(nClientSocket, "SERVER: Got message!", 21, 0);
+        send(nClientSocket, "Got message!", 13, 0);
         cout << endl << "******************";
         char hellper[50];
         snprintf(hellper, sizeof(hellper), "client-%d", nClientSocket);
@@ -188,7 +188,7 @@ void ProcessTheNewRequest()
             if (strcmp(idBuffer, "CLIENT") == 0) {
                 add_table_item(nClientWorkerSocketTable, "clients", nClientSocket);
                 cout << "Added a client to the table with socket: " << nClientSocket << endl;
-                send(nClientSocket, "SERVER: You are connected as CLIENT", 36, 0);
+                send(nClientSocket, "You are connected as CLIENT", 28, 0);
                 print_hash_table(nClientWorkerSocketTable);
             }
             else if (strcmp(idBuffer, "WORKER") == 0) {

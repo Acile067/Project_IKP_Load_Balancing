@@ -1,154 +1,67 @@
 ﻿//// Client.cpp : This file contains the 'main' function. Program execution begins and ends there.
-
-#include <iostream>
-#include <winsock.h>
-#include <cstring>  // Za memset
-using namespace std;
-
-#define PORT 5059
-
-int nClientSocket;
-struct sockaddr_in srv;
-
-void cleanup() {
-    // Zatvori soket i očisti resurse
-    if (nClientSocket != INVALID_SOCKET) {
-        closesocket(nClientSocket);
-        nClientSocket = INVALID_SOCKET;
-    }
-    WSACleanup();
-}
-
-// Funkcija koja proverava da li poruka sadrži barem jedan alfanumerički karakter
-bool isValidMessage(const char* message) {
-    bool hasAlphanumeric = false;
-
-    // Prolazimo kroz svaki karakter u poruci
-    for (size_t i = 0; i < strlen(message); ++i) {
-        char c = message[i];
-
-        // Proveravamo da li je karakter specijalan
-        if (c == '?' || c == '!' || c == ':' || c == ';') {
-            return false; // Ako pronađemo specijalan karakter, odmah vraćamo false
-        }
-
-        // Ako je karakter alfanumerički (slovo ili broj), označavamo kao validnu poruku
-        if (isalnum(c) && c != ' ') {
-            hasAlphanumeric = true;
-        }
-    }
-
-    // Ako nije pronađen nijedan alfanumerički karakter ili je pronađen specijalan karakter, poruka nije validna
-    return hasAlphanumeric;
-}
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include "client_socket.h"
+#include "message_validator.h"
 
 int main() {
-    int nRet = 0;
+    ClientSocket client;
 
-    // Inicijalizacija Winsock-a
-    WSADATA ws;
-    if (WSAStartup(MAKEWORD(2, 2), &ws) < 0) {
-        cout << "WSA Failed" << endl;
-        WSACleanup();
-        exit(EXIT_FAILURE);
-    }
-    else {
-        cout << "WSA Success" << endl;
+    //Initialize WSA
+    if (!initialize_socket(&client)) {                                      //From: client_socket.h
+        fprintf(stderr, "Failed to initialize client.\n");
+        return EXIT_FAILURE;    //if false cleanup_socket is called inside initialize_socket
     }
 
-    // Inicijalizacija soketa
-    nClientSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (nClientSocket < 0) {
-        cout << "Socket not open" << endl;
-        cleanup();  // Očisti resurse
-        exit(EXIT_FAILURE);
-    }
-    else {
-        cout << "Socket open" << endl;
+    //PORT: 5059
+    if (!connect_to_server(&client, "127.0.0.1", 5059)) {                   //From: client_socket.h
+        fprintf(stderr, "Failed to connect to server.\n");
+        return EXIT_FAILURE;    //if false cleanup_socket is called inside connect_to_server
     }
 
-    // Konfiguracija sockaddr strukture
-    srv.sin_family = AF_INET;
-    srv.sin_port = htons(PORT);
-    srv.sin_addr.s_addr = inet_addr("127.0.0.1");
-    memset(&(srv.sin_zero), 0, 8);
-
-    // Povezivanje sa serverom
-    nRet = connect(nClientSocket, (struct sockaddr*)&srv, sizeof(srv));
-    if (nRet < 0) {
-        cout << "Connect Failed" << endl;
-        cleanup();  // Očisti resurse
-        exit(EXIT_FAILURE);
-    }
-    else {
-        send(nClientSocket, "CLIENT", 6, 0);
-        cout << "CLIENT Connect Success" << endl;
+    //Recv: You are connected as CLIENT
+    char response[255];
+    if (!receive_message(&client, response, sizeof(response))) {            //From: client_socket.h
+        fprintf(stderr, "Failed to receive message from server.\n");
     }
 
-    // Očekuj poruke od servera
+    printf("[Load Balancer]: %s\n", response);
+
+    printf("-----Send Messages-----\n");
     char buffer[255] = { 0 };
 
-    // Prima početnu poruku od servera
-    int bytesReceived = recv(nClientSocket, buffer, sizeof(buffer), 0);
-    if (bytesReceived > 0) {
-        buffer[bytesReceived] = '\0';  // Null-terminate the received data
-        cout << "Server: " << buffer << endl;
-    }
-    else if (bytesReceived == 0) {
-        cout << "Server closed the connection." << endl;
-        cleanup();  // Očisti resurse
-        exit(EXIT_FAILURE);
-    }
-    else {
-        cout << "Error receiving message from server." << endl;
-        cleanup();  // Očisti resurse
-        exit(EXIT_FAILURE);
-    }
-
-    // Poruke od klijenta
-    cout << "Send Message: " << endl;
-
-    while (true) {
-        cout << "Enter message or type 'end' to exit: ";
+    while (1) {
+        printf("Enter message or type 'end' to exit: ");
         fgets(buffer, sizeof(buffer), stdin);
 
-        // Uklanjanje '\n' karaktera sa kraja poruke
+        // Remove trailing newline character
         buffer[strcspn(buffer, "\n")] = '\0';
 
         if (strcmp(buffer, "end") == 0) {
-            cout << "END" << endl;
+            printf("END\n");
             break;
         }
 
-        if (strlen(buffer) == 0 || !isValidMessage(buffer)) {
-            cout << "Incorrect message content. The message was not sent. Try again." << endl;
-            continue;  // Traži ponovo unos
+        if (strlen(buffer) == 0 || !is_valid_message(buffer)) {             //From: message_validator.h
+            printf("Incorrect message content. The message was not sent. Try again.\n");
+            continue;
         }
-
-        // Šaljemo poruku serveru
-        int bytesSent = send(nClientSocket, buffer, strlen(buffer), 0);
-        if (bytesSent == SOCKET_ERROR) {
-            cout << "Error sending message" << endl;
+            
+        if (!send_message(&client, buffer)) {                               //From: client_socket.h
+            fprintf(stderr, "Failed to send message to server.\n");
             break;
         }
 
-        // Prima odgovor od servera
-        bytesReceived = recv(nClientSocket, buffer, sizeof(buffer), 0);
-        if (bytesReceived > 0) {
-            buffer[bytesReceived] = '\0'; // Null-terminate the received data
-            cout << "Server: " << buffer << endl;
-        }
-        else if (bytesReceived == 0) {
-            cout << "Connection closed by server." << endl;
+        char response[255];
+        if (!receive_message(&client, response, sizeof(response))) {        //From: client_socket.h
+            fprintf(stderr, "Failed to receive message from server.\n");
             break;
         }
-        else {
-            cout << "Connection error or closed." << endl;
-            break;
-        }
+
+        printf("[Load Balancer]: %s\n", response);
     }
 
-    // Zatvori konekciju i očisti resurse
-    cleanup();
-    return 0;
+    cleanup_socket(&client);                                                //From: client_socket.h
+    return EXIT_SUCCESS;
 }

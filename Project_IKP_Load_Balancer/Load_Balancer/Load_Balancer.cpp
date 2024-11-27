@@ -4,421 +4,78 @@
 #include <iostream>
 #include <winsock.h>
 #include <windows.h>
-#include "../Common/hashtable.h"
-#include"../Common/queueLBtoWorker.h"
-using namespace std;
+#include "load_balancer_socket.h"
+#include "networking_utils.h"
+#include "thread_utils.h"
+#include "init_resources.h"
+
 #define PORT 5059
-#define QUEUESIZE 20
+#define BACKLOG 20
 
-int nSocket;
-struct sockaddr_in srv;
-fd_set fr, fw, fe;  //Read,Write,Exception
-int nMaxFd;
-
-const int MAX_PORTS = 100;  // Maksimalni broj portova koje ćemo čuvati
-uint16_t receivedPorts[MAX_PORTS];
-int currentIndex = 0;
-
-HASH_TABLE* nClientWorkerSocketTable;
-HASH_TABLE_MSG* nClientWorkerMSGTable;
-
-CRITICAL_SECTION cs;  // Dodaj kritičnu sekciju
-
-QUEUE* nClientMsgsQueue;
-QUEUEELEMENT* dequeued;
-
-int lastAssignedWorker = -1;
-
-void sendPorts(SOCKET nClientSocket, uint16_t* ports, size_t portsCount) {
-    char buffer[1024] = { 0 };  // Pretpostavljamo da broj portova neće preći 1024 karaktera
-    int offset = 0;
-
-    // Formatiraj portove u obliku "port1:port2:port3:"
-    for (size_t i = 0; i < portsCount; ++i) {
-        if (ports[i] == 0) {
-            continue;  // Preskoči portove koji su 0
-        }
-        // Dodaj port u buffer koristeći sprintf_s
-        int n = sprintf_s(buffer + offset, sizeof(buffer) - offset, "%u", ntohs(ports[i]));  // Prebacimo port u host byte order
-        if (n < 0 || n >= sizeof(buffer) - offset) {
-            // Greška u formiranju stringa
-            printf("Error formatting port number.\n");
-            return;
-        }
-        offset += n;
-
-        // Dodaj dvotačku osim posle poslednjeg porta
-        
-        buffer[offset++] = '!';
-        
-    }
-
-    if (offset < sizeof(buffer)) {
-        buffer[offset] = '\0';
-    }
-    else {
-        printf("Buffer overflow detected when adding null terminator.\n");
-        return;
-    }
-
-    // Pošaljite string sa portovima
-    int nRet = send(nClientSocket, buffer, offset, 0);
-    if (nRet <= 0) {
-        printf("Error sending ports.\n");
-    }
-    else {
-        cout << endl;
-        printf("Ports sent successfully: %s\n", buffer);
-    }
-}
-
-void RedistributeDataToWorker(int nWorkerSocket)
-{
-    cout << "Redistributing data to worker: " << nWorkerSocket << endl;
-  
-    char ret[256 + 1];
-    EnterCriticalSection(&nClientWorkerMSGTable->cs); // Zaštitite pristup hash tabeli
-    convert_to_string(nClientWorkerMSGTable, ret, sizeof(ret));
-    LeaveCriticalSection(&nClientWorkerMSGTable->cs);
-    cout << "Converted nClientWorkerMSGTable: " << ret << endl;
-    send(nWorkerSocket, ret, sizeof(ret), 0);
-    
-    cout << "Data successfully redistributed to worker." << endl;
-}
-
-void ProcessNewMessageOrDisconnectWorker(int nWorkerSocket)
-{
-    cout << endl << "Procesing message from worker: " << nWorkerSocket;
-    char buffer[256 + 1] = { 0, };
-
-    // Proveri da li je socket još uvek otvoren pre nego što pozoveš recv
-    int nRet = recv(nWorkerSocket, buffer, 256, 0);
-    if (nRet <= 0) {
-        // Ako je socket zatvoren ili došlo do greške
-        cout << endl << "Something bad happen. Closing Worker Socket " << nWorkerSocket << endl;
-        closesocket(nWorkerSocket);
-
-        EnterCriticalSection(&cs);
-        LIST* workers = get_table_item(nClientWorkerSocketTable, "workers");
-        if (workers != NULL && workers->count > 0) {
-            LIST_ITEM* worker = workers->head;
-            int nIndexCnt = 0;
-            while (worker != NULL) {
-                if (worker->data == nWorkerSocket) {
-                    if (remove_from_list(workers, nIndexCnt)) {
-                        print_hash_table(nClientWorkerSocketTable);
-                    }
-                    break; // Moze se prekinuti petlja nakon brisanja
-                }
-                nIndexCnt++;
-                worker = worker->next;
-            }
-        }
-        LeaveCriticalSection(&cs);
-    }
-    else 
-    {
-        cout << endl << "CANT HAPPEN NOW";
-    }
-}
-
-void ProcessNewMessage(int nClientSocket) 
-{
-    cout << endl << "Procesing message from client: " << nClientSocket;
-    char buffer[256 + 1] = { 0, };
-
-    // Proveri da li je socket još uvek otvoren pre nego što pozoveš recv
-    int nRet = recv(nClientSocket, buffer, 256, 0);
-    if (nRet <= 0) {
-        // Ako je socket zatvoren ili došlo do greške
-        cout << endl << "Something bad happen. Closing Client Socket " << nClientSocket << endl;
-        closesocket(nClientSocket);
-
-        EnterCriticalSection(&cs);
-        LIST* clients = get_table_item(nClientWorkerSocketTable, "clients");
-        if (clients != NULL && clients->count > 0) {
-            LIST_ITEM* client = clients->head;
-            int nIndexCnt = 0;
-            while (client != NULL) {
-                if (client->data == nClientSocket) {
-                    if (remove_from_list(clients, nIndexCnt)) {
-                        print_hash_table(nClientWorkerSocketTable);
-                    }
-                    break; // Moze se prekinuti petlja nakon brisanja
-                }
-                nIndexCnt++;
-                client = client->next;
-            }
-        }
-        LeaveCriticalSection(&cs);
-    }
-    else {
-        cout << endl << "CLIENT SAY: " << buffer;
-        send(nClientSocket, "Got message!", 13, 0);
-        cout << endl << "******************";
-        char hellper[50];
-        snprintf(hellper, sizeof(hellper), "client-%d", nClientSocket);
-        const char* clientName = hellper;
-        cout << endl << clientName << endl;
-
-        if (!get_table_item_msg(nClientWorkerMSGTable, clientName))
-        {
-            if (add_list_table_msg(nClientWorkerMSGTable, clientName)) {}
-        }
-        if (add_table_item_msg(nClientWorkerMSGTable, clientName, buffer)) {}
-
-        print_hash_table_msg(nClientWorkerMSGTable);
-
-        EnterCriticalSection(&cs);
-        enqueue(nClientMsgsQueue, create_queue_element(clientName, buffer));
-        LeaveCriticalSection(&cs);
-    }
-}
-
-void ProcessTheNewRequest()
-{
-    // New Connection Request
-    if (FD_ISSET(nSocket, &fr)) {
-        int nLen = sizeof(struct sockaddr);
-        int nClientSocket = accept(nSocket, NULL, &nLen);
-        if (nClientSocket > 0) {
-            char idBuffer[256] = { 0 };
-            recv(nClientSocket, idBuffer, 256, 0);  // rcv client_hello or worker_hello
-
-            if (strcmp(idBuffer, "CLIENT") == 0) {
-                add_table_item(nClientWorkerSocketTable, "clients", nClientSocket);
-                cout << "Added a client to the table with socket: " << nClientSocket << endl;
-                send(nClientSocket, "You are connected as CLIENT", 28, 0);
-                print_hash_table(nClientWorkerSocketTable);
-            }
-            else if (strcmp(idBuffer, "WORKER") == 0) {
-                add_table_item(nClientWorkerSocketTable, "workers", nClientSocket);
-                cout << "Added a worker to the table with socket: " << nClientSocket << endl;
-                send(nClientSocket, "SERVER: You are connected as WORKER", 36, 0);
-                print_hash_table(nClientWorkerSocketTable);
-                RedistributeDataToWorker(nClientSocket);
-
-                uint16_t receivedPort;
-                
-                int nRet = recv(nClientSocket, (char*)&receivedPort, sizeof(receivedPort), 0);
-                if (nRet <= 0) {
-                    cout << "Error receiving port." << endl;
-                    closesocket(nClientSocket);
-                    return;
-                }
-                receivedPort = ntohs(receivedPort);
-
-                if (currentIndex < MAX_PORTS) {
-                    // Dodaj port u niz
-                    receivedPorts[currentIndex] = receivedPort;
-                    currentIndex++;
-                }
-
-                cout << "Received port: " << receivedPort << endl;
-
-            }
-            else {
-                cout << "Unknown connection type" << endl;
-                closesocket(nClientSocket);
-            }
-        }
-    }
-}
-
-// Thread funkcija za prihvatanje novih konekcija
-DWORD WINAPI AcceptConnectionsThread(LPVOID lpParam) {
-    while (true) {
-        FD_ZERO(&fr);
-        FD_ZERO(&fe);
-        FD_SET(nSocket, &fr);
-        FD_SET(nSocket, &fe);
-
-        struct timeval tv;
-        tv.tv_sec = 1;
-        int nRet = select(nMaxFd + 1, &fr, NULL, &fe, &tv);
-        if (nRet > 0 && FD_ISSET(nSocket, &fr)) {
-            ProcessTheNewRequest();
-        }
-    }
-    return 0;
-}
-
-DWORD WINAPI ProcessMessagesThread(LPVOID lpParam) {
-    while (true) {
-        FD_ZERO(&fr);
-        FD_ZERO(&fe);
-
-        // Dodajemo sve klijente u fd_set za proveru poruka
-        EnterCriticalSection(&cs);
-        LIST* clients = get_table_item(nClientWorkerSocketTable, "clients");
-        if (clients != NULL && clients->count > 0) {
-            LIST_ITEM* client = clients->head;
-            while (client != NULL) {
-                SOCKET nClientMSGSocket = client->data;
-                FD_SET(nClientMSGSocket, &fr);
-                FD_SET(nClientMSGSocket, &fe);
-                client = client->next;
-            }
-        }
-        LeaveCriticalSection(&cs);
-
-        EnterCriticalSection(&cs);
-        LIST* workers = get_table_item(nClientWorkerSocketTable, "workers");
-        if (workers != NULL && workers->count > 0) {
-            LIST_ITEM* worker = workers->head;
-            while (worker != NULL) {
-                SOCKET nWorkerSocket = worker->data;
-                FD_SET(nWorkerSocket, &fr); // Dodajemo u fd_set za workere
-                FD_SET(nWorkerSocket, &fe); // Dodajemo u exception fd_set za workere
-                worker = worker->next;
-            }
-        }
-        LeaveCriticalSection(&cs);
-
-        struct timeval tv;
-        tv.tv_sec = 1;
-        bool clientGotMessage = false;
-        int nRet = select(nMaxFd + 1, &fr, NULL, &fe, &tv);
-        if (nRet > 0) {
-            EnterCriticalSection(&cs);
-            LIST_ITEM* client = clients ? clients->head : nullptr;
-            while (client != NULL) {
-                if (client == NULL || client == reinterpret_cast<LIST_ITEM*>(0xdddddddddddddddd)) {
-                    cout << "Detected invalid client pointer." << endl;
-                    break;
-                }
-                SOCKET nClientMSGSocket = client->data;
-                if (FD_ISSET(nClientMSGSocket, &fr)) {
-                    ProcessNewMessage(nClientMSGSocket);
-                    clientGotMessage = true;
-                    //break;
-                }
-                client = client->next;
-            }
-            LeaveCriticalSection(&cs);
-
-            if (!clientGotMessage)
-            {
-                EnterCriticalSection(&cs);
-                LIST_ITEM* worker = workers ? workers->head : nullptr;
-                while (worker != NULL) {
-                    if (worker == NULL || worker == reinterpret_cast<LIST_ITEM*>(0xdddddddddddddddd)) {
-                        cout << "Detected invalid worker pointer." << endl;
-                        break;
-                    }
-                    SOCKET nWorkerSocket = worker->data;
-                    if (FD_ISSET(nWorkerSocket, &fr)) {
-                        ProcessNewMessageOrDisconnectWorker(nWorkerSocket);
-                        //break;
-                    }
-                    worker = worker->next;
-                }
-                LeaveCriticalSection(&cs);
-            }
-        }
-    }
-    return 0;
-}
-
-void SendMsgToWorker(SOCKET nWorkerSocket, char* msg)
-{
-    send(nWorkerSocket, msg, (int)strlen(msg), 0); // Šalje poruku kroz soket
-    cout << endl << nWorkerSocket << "->" << msg;
-}
-
-DWORD WINAPI SendMassagesToWorkersRoundRobin(LPVOID lpParam) {
-    while (true) 
-    {
-        if (nClientMsgsQueue->currentSize > 0)
-        {
-            EnterCriticalSection(&cs);
-            dequeued = dequeue(nClientMsgsQueue);
-            LeaveCriticalSection(&cs);
-
-            EnterCriticalSection(&cs);
-            LIST* workers = get_table_item(nClientWorkerSocketTable, "workers");
-            if (workers != NULL && workers->count > 0) {
-                lastAssignedWorker = (lastAssignedWorker + 1) % workers->count;
-                LIST_ITEM* worker = workers->head;
-                int nIndex = 0;
-                while (worker != NULL) {
-                    if (nIndex == lastAssignedWorker) {
-                        // Assign the task to the next worker
-                        int nWorkerSocket = worker->data;
-                        cout << "[Load Balancer] Assigning client request to worker: " << nWorkerSocket << endl;
-
-                        char message[256]; // Ensure the buffer is large enough
-                        snprintf(message, sizeof(message), "%s:%s", dequeued->clientName, dequeued->data);
-
-                        SendMsgToWorker(nWorkerSocket, message);  // Send the data to this worker
-                        size_t portsCount = currentIndex;
-                        sendPorts(nWorkerSocket, receivedPorts, portsCount);
-
-                        break;
-                    }
-                    nIndex++;
-                    worker = worker->next;
-                }
-            }
-            LeaveCriticalSection(&cs);
-        }
-    }
-}
+HASH_TABLE* nClientWorkerSocketTable = NULL;
 
 int main()
 {
-    nClientWorkerSocketTable = init_hash_table();
-    add_list_table(nClientWorkerSocketTable, "clients");
-    add_list_table(nClientWorkerSocketTable, "workers");
+    ServerSocket server;
+    
+    HASH_TABLE_MSG* nClientMSGTable = NULL;
+    QUEUE* nClientMsgsQueue = NULL;
 
-    nClientWorkerMSGTable = init_hash_table_msg();
+    initialize_resources(&nClientWorkerSocketTable, &nClientMSGTable, &nClientMsgsQueue);   //From: init_resources.h
 
-    nClientMsgsQueue = init_queue(QUEUESIZE);
-
-    // Inicijalizacija kritične sekcije u main funkciji
-    InitializeCriticalSection(&cs);
-
-    // Inicijalizacija Winsock-a i kreiranje socket-a
-    WSADATA ws;
-    if (WSAStartup(MAKEWORD(2, 2), &ws) < 0) {
-        cout << "WSA Failed" << endl;
-        WSACleanup();
-        exit(EXIT_FAILURE);
+    if (!nClientWorkerSocketTable || !nClientMSGTable || !nClientMsgsQueue) {
+        fprintf(stderr, "Failed to initialize all resources\n");
+        return EXIT_FAILURE;
     }
-    cout << "WSA Success" << endl;
 
-    nSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (nSocket < 0) {
-        cout << "Socket not open" << endl;
-        WSACleanup();
-        exit(EXIT_FAILURE);
+    // Initialize server socket
+    if (!initialize_server_socket(&server, PORT)) {                     //From: load_balancer_socket.h
+        fprintf(stderr, "Failed to initialize server socket\n");
+        return EXIT_FAILURE;
     }
-    cout << "Socket open" << endl;
 
-    srv.sin_family = AF_INET;
-    srv.sin_port = htons(PORT);
-    srv.sin_addr.s_addr = INADDR_ANY;
-    memset(&(srv.sin_zero), 0, 8);
+    // Bind and listen
+    if (!bind_and_listen(&server, BACKLOG)) {                           //From: load_balancer_socket.h
+        fprintf(stderr, "Failed to bind and listen on server socket\n");
+        cleanup_server_socket(&server);                                 //From: load_balancer_socket.h
+        return EXIT_FAILURE;
+    }
 
-    // Bind i listen
-    bind(nSocket, (sockaddr*)&srv, sizeof(sockaddr));
-    listen(nSocket, 20);
-    cout << "Listen Ready:" << endl;
+    fd_set readSet, exceptSet;
+    ThreadParams params;                                                //From: thread_utils.h
+    params.serverSocket = server.socket;
+    params.readSet = &readSet;
+    params.exceptSet = &exceptSet;
+    params.maxFd = (int)server.socket;
 
-    // Inicijalizacija threadova za nove konekcije i poruke i slanje poruka ka workeru
-    HANDLE hThread1 = CreateThread(NULL, 0, AcceptConnectionsThread, NULL, 0, NULL);
-    HANDLE hThread2 = CreateThread(NULL, 0, ProcessMessagesThread, NULL, 0, NULL);
-    HANDLE hThread3 = CreateThread(NULL, 0, SendMassagesToWorkersRoundRobin, NULL, 0, NULL);
+    // Create the thread for handling connections
+    HANDLE threadHandle = CreateThread(
+        NULL,                  // Default security attributes
+        0,                     // Default stack size
+        AcceptConnectionsThread, // Thread function
+        &params,               // Thread parameters
+        0,                     // Default creation flags
+        NULL                   // No thread ID needed
+    );
 
-    // Cekamo da thread-ovi završe (ili možete dodati dodatnu logiku za prekid)
-    WaitForSingleObject(hThread1, INFINITE);
-    WaitForSingleObject(hThread2, INFINITE);
-    WaitForSingleObject(hThread3, INFINITE);
+    if (threadHandle == NULL) {
+        fprintf(stderr, "Failed to create thread\n");
+        cleanup_server_socket(&server);                                 //From: load_balancer_socket.h
+        return EXIT_FAILURE;
+    }
 
-    // Zatvori socket i očisti Winsock
-    DeleteCriticalSection(&cs);
-    closesocket(nSocket);
+    printf("Server is running. Press Ctrl+C to terminate.\n");
+
+    // Wait for the thread to finish (infinite wait for this example)
+    WaitForSingleObject(threadHandle, INFINITE);
+
+    // Cleanup resources
+    CloseHandle(threadHandle);
+
+    // Cleanup server socket
+    cleanup_server_socket(&server);
+    return EXIT_SUCCESS;
+
     WSACleanup();
     return 0;
-    
 }

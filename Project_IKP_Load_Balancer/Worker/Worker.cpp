@@ -8,6 +8,7 @@
 #include "worker_socket.h"
 #include "init_resources.h"
 #include "networking_utils.h"
+#include "thread_utils.h"
 
 HASH_TABLE_MSG* nClientMSGTable = NULL;
 QUEUE* nClientMsgsQueue = NULL;
@@ -37,6 +38,25 @@ int main()
         return -1;
     }
 
+    HANDLE hThread;
+
+    // Kreiranje niti i prosleđivanje socket-a kao parametra
+    hThread = CreateThread(
+        NULL,                   // Default security attributes
+        0,                      // Default stack size
+        ProcessLBMessage,       // Funkcija niti
+        &workerSockets.connectionSocket,          // Parametar niti (pokazivač na socket)
+        0,                      // Default creation flags
+        NULL                    // ID niti
+    );
+
+    if (hThread == NULL) {
+        printf("Failed to create thread: %d\n", GetLastError());
+        return -1;
+    }
+
+    WaitForSingleObject(hThread, INFINITE);
+    CloseHandle(hThread);
 
     free_resources(&nClientMSGTable, &nClientMsgsQueue);                                //From: init_resources.h
     cleanup_worker_sockets(&workerSockets);

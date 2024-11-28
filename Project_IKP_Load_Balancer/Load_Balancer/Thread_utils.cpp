@@ -1,5 +1,10 @@
-#include "thread_utils.h"
+﻿#include "thread_utils.h"
 #include "networking_utils.h"
+#include <string.h>
+
+extern int lastAssignedWorker;
+extern QUEUEELEMENT* dequeued;
+extern WorkerArray g_WorkerArray;
 
 DWORD WINAPI AcceptConnectionsThread(LPVOID lpParam) {
     ThreadParams* params = (ThreadParams*)lpParam;
@@ -110,4 +115,59 @@ DWORD WINAPI ProcessMessagesThread(LPVOID lpParam) {
         }
     }
     return 0;
+}
+
+DWORD WINAPI SendMassagesToWorkersRoundRobin(LPVOID lpParam) {
+    while (true)
+    {
+        if (nClientMsgsQueue->currentSize > 0)
+        {
+            dequeued = dequeue(nClientMsgsQueue);
+
+            LIST* workers = get_table_item(nClientWorkerSocketTable, "workers");
+            if (workers != NULL && workers->count > 0) {
+                lastAssignedWorker = (lastAssignedWorker + 1) % workers->count;
+                LIST_ITEM* worker = workers->head;
+                int nIndex = 0;
+                while (worker != NULL) {
+                    if (nIndex == lastAssignedWorker) {
+                        // Assign the task to the next worker
+                        int nWorkerSocket = worker->data;
+                        cout << "[Load Balancer] Assigning client request to worker: " << nWorkerSocket << endl;
+
+                        CombinedDataStructure combinedData;
+                        initialize_combined_data_structure(&combinedData);
+
+                        // Popunjavanje klijentovih podataka
+                        combinedData.clientName = _strdup(dequeued->clientName); // Kopira ime klijenta
+                        combinedData.data = _strdup(dequeued->data);             // Kopira podatke klijenta
+
+                        // Popunjavanje radnika
+                        memcpy(&combinedData.workerArray, &g_WorkerArray, sizeof(WorkerArray));
+
+                        char buffer[1024];
+                        int serializedSize = serialize_combined_data_structure(&combinedData, buffer, sizeof(buffer));
+                        if (serializedSize <= 0) {
+                            printf("Failed to serialize data structure\n");
+                            cleanup_combined_data_structure(&combinedData);
+                            break;
+                        }
+
+                        if (send(nWorkerSocket, buffer, serializedSize, 0) == SOCKET_ERROR) {
+                            printf("Failed to send message to worker %d\n", nWorkerSocket);
+                        }
+                        else {
+                            cout << "[Load Balancer] Successfully sent message to worker: " << nWorkerSocket << endl;
+                        }
+
+                        // Čišćenje strukture
+                        cleanup_combined_data_structure(&combinedData);
+                        break;
+                    }
+                    nIndex++;
+                    worker = worker->next;
+                }
+            }
+        }
+    }
 }

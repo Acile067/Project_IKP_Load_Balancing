@@ -17,6 +17,8 @@ HASH_TABLE_MSG* nClientMSGTable = NULL;
 QUEUE* nClientMsgsQueue = NULL;
 WorkerArray g_WorkerArray;
 CRITICAL_SECTION g_workerArrayCriticalSection;
+int lastAssignedWorker = -1;
+QUEUEELEMENT* dequeued;
 
 int main()
 {
@@ -82,15 +84,32 @@ int main()
         return EXIT_FAILURE;
     }
 
+    HANDLE h2Thread = CreateThread(
+        NULL,
+        0,
+        SendMassagesToWorkersRoundRobin,
+        NULL,
+        0,
+        NULL
+    );
+
+    if (h2Thread == NULL) {
+        fprintf(stderr, "Failed to create msg processor thread\n");
+        cleanup_server_socket(&server);                                 //From: load_balancer_socket.h
+        return EXIT_FAILURE;
+    }
+
     printf("Server is running. Press Ctrl+C to terminate.\n");
 
     // Wait for the thread to finish (infinite wait for this example)
     WaitForSingleObject(threadHandle, INFINITE);
     WaitForSingleObject(hThread, INFINITE);
+    WaitForSingleObject(h2Thread, INFINITE);
 
     // Cleanup resources
     CloseHandle(threadHandle);
     CloseHandle(hThread);
+    CloseHandle(h2Thread);
 
     cleanup_worker_array_critical_section();
 

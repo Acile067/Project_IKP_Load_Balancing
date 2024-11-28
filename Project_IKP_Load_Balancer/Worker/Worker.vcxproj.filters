@@ -41,7 +41,7 @@
     <ClInclude Include="networking_utils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Thread_utils.h">
+    <ClInclude Include="thread_utils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

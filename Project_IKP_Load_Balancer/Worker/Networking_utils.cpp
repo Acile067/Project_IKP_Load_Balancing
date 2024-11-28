@@ -113,3 +113,91 @@ int send_worker_port(SOCKET socket, uint16_t port) {
     printf("Worker port (%u) sent successfully to load balancer.\n", port);
     return 0;
 }
+
+int deserialize_combined_data_structure(char* buffer, int bufferSize, CombinedDataStructure* data) {
+    if (!buffer || bufferSize <= 0 || !data) return -1;
+
+    int offset = 0;
+
+    // Čitanje clientName (dužina + sadržaj)
+    int nameLength = 0;
+    if (offset + sizeof(int) > bufferSize) return -1;
+    memcpy(&nameLength, buffer + offset, sizeof(int));
+    offset += sizeof(int);
+
+    if (nameLength > 0) {
+        data->clientName = (char*)malloc(nameLength);
+        if (!data->clientName) return -1;
+        if (offset + nameLength > bufferSize) return -1;
+        memcpy(data->clientName, buffer + offset, nameLength);
+        offset += nameLength;
+    }
+    else {
+        data->clientName = NULL;
+    }
+
+    // Čitanje data (dužina + sadržaj)
+    int dataLength = 0;
+    if (offset + sizeof(int) > bufferSize) return -1;
+    memcpy(&dataLength, buffer + offset, sizeof(int));
+    offset += sizeof(int);
+
+    if (dataLength > 0) {
+        data->data = (char*)malloc(dataLength);
+        if (!data->data) {
+            free(data->clientName);
+            return -1;
+        }
+        if (offset + dataLength > bufferSize) return -1;
+        memcpy(data->data, buffer + offset, dataLength);
+        offset += dataLength;
+    }
+    else {
+        data->data = NULL;
+    }
+
+    // Čitanje WorkerArray
+    if (offset + sizeof(WorkerArray) > bufferSize) {
+        free(data->clientName);
+        free(data->data);
+        return -1;
+    }
+    memcpy(&data->workerArray, buffer + offset, sizeof(WorkerArray));
+    offset += sizeof(WorkerArray);
+
+    return 0; // Uspešno deserijalizovano
+}
+
+void receive_combined_data(SOCKET serverSocket) {
+    char buffer[1024];
+    int bytesReceived = recv(serverSocket, buffer, sizeof(buffer), 0);
+
+    if (bytesReceived <= 0) {
+        printf("Failed to receive data or connection closed.\n");
+        return;
+    }
+
+    // Kreiranje CombinedDataStructure za preuzete podatke
+    CombinedDataStructure receivedData;
+    memset(&receivedData, 0, sizeof(receivedData));
+
+    if (deserialize_combined_data_structure(buffer, bytesReceived, &receivedData) == 0) {
+        printf("Client Name: %s\n", receivedData.clientName ? receivedData.clientName : "NULL");
+        printf("Client Data: %s\n", receivedData.data ? receivedData.data : "NULL");
+
+        printf("Worker Array:\n");
+        for (int i = 0; i < receivedData.workerArray.count; i++) {
+            printf("  Worker %d - Socket: %d, Port: %u\n",
+                i,
+                receivedData.workerArray.workers[i].socket,
+                receivedData.workerArray.workers[i].port);
+        }
+    }
+    else {
+        printf("Failed to deserialize received data.\n");
+    }
+
+    // Oslobađanje memorije
+    free(receivedData.clientName);
+    free(receivedData.data);
+}

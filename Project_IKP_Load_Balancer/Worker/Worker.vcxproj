@@ -142,7 +142,7 @@
   <ItemGroup>
     <ClInclude Include="init_resources.h" />
     <ClInclude Include="networking_utils.h" />
-    <ClInclude Include="Thread_utils.h" />
+    <ClInclude Include="thread_utils.h" />
     <ClInclude Include="worker_socket.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

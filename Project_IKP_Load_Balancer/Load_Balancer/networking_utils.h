@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #ifndef NETWORKING_UTILS_H
 #define NETWORKING_UTILS_H
 
@@ -21,6 +21,15 @@ typedef struct {
     int count;
 } WorkerArray;
 
+typedef struct {
+    // Polja iz WorkerArray
+    WorkerArray workerArray;
+
+    // Polja koja čuvaju informacije o klijentu
+    char* clientName;  // Ime klijenta
+    char* data;        // Podaci koji se čuvaju u ovoj strukturi
+} CombinedDataStructure;
+
 // External hash table declaration
 extern HASH_TABLE* nClientWorkerSocketTable;
 extern QUEUE* nClientMsgsQueue;
@@ -40,4 +49,7 @@ int handle_worker_message(SOCKET workerSocket, char* message, WorkerArray* worke
 int add_worker_to_array(WorkerArray* array, SOCKET socket, uint16_t port);
 int recv_and_handle_worker_message(SOCKET workerSocket, char* buffer, int bufferLength, WorkerArray* workers);
 int remove_worker_from_array(WorkerArray* workers, SOCKET socket);
+void initialize_combined_data_structure(CombinedDataStructure* data);
+void cleanup_combined_data_structure(CombinedDataStructure* data);
+int serialize_combined_data_structure(CombinedDataStructure* data, char* buffer, int bufferSize);
 #endif // NETWORKING_UTILS_H

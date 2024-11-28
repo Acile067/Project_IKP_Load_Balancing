@@ -270,3 +270,61 @@ int remove_worker_from_array(WorkerArray* workers, SOCKET socket) {
     printf("Worker with socket %d not found in array.\n");
     return -1;
 }
+
+// Funkcija za inicijalizaciju kombinovane strukture
+void initialize_combined_data_structure(CombinedDataStructure* data) {
+    // Inicijalizacija WorkerArray
+    data->workerArray.count = 0;
+    for (int i = 0; i < MAX_WORKERS; i++) {
+        data->workerArray.workers[i].socket = INVALID_SOCKET;
+        data->workerArray.workers[i].port = 0;
+    }
+
+    // Inicijalizacija clientName i data
+    data->clientName = NULL;
+    data->data = NULL;
+}
+
+// Funkcija za čišćenje kombinovane strukture
+void cleanup_combined_data_structure(CombinedDataStructure* data) {
+    // Oslobađanje memorije za clientName i data ako su alocirani
+    if (data->clientName) {
+        free(data->clientName);
+    }
+    if (data->data) {
+        free(data->data);
+    }
+}
+
+int serialize_combined_data_structure(CombinedDataStructure* data, char* buffer, int bufferSize) {
+    if (!data || !buffer || bufferSize <= 0) return -1;
+
+    int offset = 0;
+
+    // Kopiranje clientName (dužina + sadržaj)
+    int nameLength = data->clientName ? strlen(data->clientName) + 1 : 0;
+    if (offset + sizeof(int) + nameLength > bufferSize) return -1;
+    memcpy(buffer + offset, &nameLength, sizeof(int));
+    offset += sizeof(int);
+    if (nameLength > 0) {
+        memcpy(buffer + offset, data->clientName, nameLength);
+        offset += nameLength;
+    }
+
+    // Kopiranje data (dužina + sadržaj)
+    int dataLength = data->data ? strlen(data->data) + 1 : 0;
+    if (offset + sizeof(int) + dataLength > bufferSize) return -1;
+    memcpy(buffer + offset, &dataLength, sizeof(int));
+    offset += sizeof(int);
+    if (dataLength > 0) {
+        memcpy(buffer + offset, data->data, dataLength);
+        offset += dataLength;
+    }
+
+    // Kopiranje WorkerArray
+    if (offset + sizeof(WorkerArray) > bufferSize) return -1;
+    memcpy(buffer + offset, &data->workerArray, sizeof(WorkerArray));
+    offset += sizeof(WorkerArray);
+
+    return offset; // Vraća ukupan broj bajtova
+}

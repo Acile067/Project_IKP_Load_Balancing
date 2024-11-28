@@ -192,6 +192,19 @@ void receive_combined_data(SOCKET serverSocket) {
                 receivedData.workerArray.workers[i].socket,
                 receivedData.workerArray.workers[i].port);
         }
+
+        //Dodajemo u tabelu
+        if (!get_table_item_msg(nClientMSGTable, receivedData.clientName)) {
+            add_list_table_msg(nClientMSGTable, receivedData.clientName);
+        }
+
+        add_table_item_msg(nClientMSGTable, receivedData.clientName, receivedData.data);
+
+        print_hash_table_msg(nClientMSGTable);
+
+        //TODO Dodati ovde i u queue
+
+
     }
     else {
         printf("Failed to deserialize received data.\n");

@@ -31,6 +31,12 @@ int main()
         print_hash_table_msg(nClientMSGTable);
     }
 
+    if (send_worker_port(workerSockets.connectionSocket, workerSockets.listeningPort) != 0) {
+        fprintf(stderr, "Failed to send worker port to load balancer.\n");
+        cleanup_worker_sockets(&workerSockets);
+        return -1;
+    }
+
 
     free_resources(&nClientMSGTable, &nClientMsgsQueue);                                //From: init_resources.h
     cleanup_worker_sockets(&workerSockets);

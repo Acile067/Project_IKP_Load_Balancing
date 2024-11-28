@@ -15,10 +15,14 @@
 HASH_TABLE* nClientWorkerSocketTable = NULL;
 HASH_TABLE_MSG* nClientMSGTable = NULL;
 QUEUE* nClientMsgsQueue = NULL;
+WorkerArray g_WorkerArray;
+CRITICAL_SECTION g_workerArrayCriticalSection;
 
 int main()
 {
     ServerSocket server;
+
+    initialize_worker_array_critical_section();
     
     initialize_resources(&nClientWorkerSocketTable, &nClientMSGTable, &nClientMsgsQueue);   //From: init_resources.h
 
@@ -87,6 +91,8 @@ int main()
     // Cleanup resources
     CloseHandle(threadHandle);
     CloseHandle(hThread);
+
+    cleanup_worker_array_critical_section();
 
     // Cleanup server socket
     WSACleanup();

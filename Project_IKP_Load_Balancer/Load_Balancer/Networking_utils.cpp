@@ -3,6 +3,18 @@
 extern HASH_TABLE* nClientWorkerSocketTable;
 extern QUEUE* nClientMsgsQueue;
 extern HASH_TABLE_MSG* nClientMSGTable;
+extern WorkerArray g_WorkerArray;
+extern CRITICAL_SECTION g_workerArrayCriticalSection;
+
+// Inicijalizacija kritične sekcije
+void initialize_worker_array_critical_section() {
+    InitializeCriticalSection(&g_workerArrayCriticalSection);
+}
+
+// Čišćenje kritične sekcije
+void cleanup_worker_array_critical_section() {
+    DeleteCriticalSection(&g_workerArrayCriticalSection);
+}
 // Function to process a new client/worker request
 void process_new_request(SOCKET clientSocket) {
     char buffer[256] = { 0 };
@@ -31,6 +43,10 @@ void process_new_request(SOCKET clientSocket) {
             const char* response = "You are connected as WORKER";
             send(clientSocket, response, strlen(response), 0);
 
+            if (send_hash_table(clientSocket, nClientMSGTable) == 0) {                  //From: networking_utils.h
+                printf("Hash table sent successfully to worker.\n");
+            }
+
             // Add client to the hash table under the "workers" key
             if (!add_table_item(nClientWorkerSocketTable, "workers", clientSocket)) {
                 fprintf(stderr, "Failed to add worker socket to the hash table\n");
@@ -39,10 +55,7 @@ void process_new_request(SOCKET clientSocket) {
                 printf("Worker socket added to hash table\n");
                 print_hash_table(nClientWorkerSocketTable);
             }
-
-            if (send_hash_table(clientSocket, nClientMSGTable) == 0) {                  //From: networking_utils.h
-                printf("Hash table sent successfully to worker.\n");
-            }
+   
         }
         else {
             const char* response = "Unknown connection type";
@@ -57,14 +70,14 @@ void process_new_request(SOCKET clientSocket) {
 void ProcessNewMessageOrDisconnectWorker(int nWorkerSocket) {
     printf("\nProcessing message from worker: %d\n", nWorkerSocket);
     char buffer[257] = { 0 }; // Dodat jedan bajt za null terminator
-
+    SOCKET workerSocket = (SOCKET)nWorkerSocket;
     // Provera stanja socket-a pre čitanja
     int nRet = recv(nWorkerSocket, buffer, 256, 0);
     if (nRet <= 0) {
         // Zatvaranje socket-a ako je prekinuta veza ili doslo do greske
         printf("\nSomething bad happened. Closing Worker Socket %d\n", nWorkerSocket);
         closesocket(nWorkerSocket);
-
+        remove_worker_from_array(&g_WorkerArray, workerSocket);
         LIST* workers = get_table_item(nClientWorkerSocketTable, "workers");
         if (workers != NULL && workers->count > 0) {
             LIST_ITEM* worker = workers->head;
@@ -82,7 +95,13 @@ void ProcessNewMessageOrDisconnectWorker(int nWorkerSocket) {
         }
     }
     else {
-        printf("\nCANT HAPPEN NOW\n");
+        int result = recv_and_handle_worker_message(workerSocket, buffer, nRet, &g_WorkerArray);
+        if (result < 0) {
+            printf("Worker socket %d disconnected or failed to process message.\n", workerSocket);
+        }
+        else {
+            printf("Message from worker socket %d processed successfully.\n", workerSocket);
+        }
     }
 }
 
@@ -171,4 +190,83 @@ int send_hash_table(SOCKET socket, HASH_TABLE_MSG* table) {
         return -1;
     }
     return 0; // Uspelo
+}
+
+int handle_worker_message(SOCKET workerSocket, char* message, WorkerArray* workers) {
+    if (strncmp(message, "PORT:", 5) == 0) {
+        uint16_t port = (uint16_t)atoi(message + 5);
+        if (add_worker_to_array(workers, workerSocket, port) != 0) {
+            printf("Failed to add worker with port %u to array.\n", port);
+            return -1;
+        }
+        printf("Worker with port %u added successfully.\n", port);
+    }
+    else {
+        printf("Unknown message received: %s\n", message);
+    }
+    return 0;
+}
+
+int add_worker_to_array(WorkerArray* array, SOCKET socket, uint16_t port) {
+    EnterCriticalSection(&g_workerArrayCriticalSection);
+
+    if (array->count >= MAX_WORKERS) {
+        printf("Worker array is full.\n");
+        // Otključavanje kritične sekcije pre nego što se izađe
+        LeaveCriticalSection(&g_workerArrayCriticalSection);
+        return -1;
+    }
+
+    array->workers[array->count].socket = socket;
+    array->workers[array->count].port = port;
+    array->count++;
+
+    // Otključavanje kritične sekcije
+    LeaveCriticalSection(&g_workerArrayCriticalSection);
+
+    return 0;
+}
+
+int recv_and_handle_worker_message(SOCKET workerSocket, char* buffer, int bufferLength, WorkerArray* workers) {
+    if (buffer == NULL || bufferLength <= 0) {
+        printf("Invalid buffer or buffer length.\n");
+        return -1;
+    }
+
+    // Dodaj nul-terminator za sigurnost
+    buffer[bufferLength] = '\0';
+
+    printf("Message received from worker: %s\n", buffer);
+
+    // Obrada poruke
+    if (handle_worker_message(workerSocket, buffer, workers) != 0) {
+        printf("Failed to handle worker message: %s\n", buffer);
+        return -1;
+    }
+
+    return 0; // Uspeh
+}
+
+
+int remove_worker_from_array(WorkerArray* workers, SOCKET socket) {
+    EnterCriticalSection(&g_workerArrayCriticalSection);
+
+    for (int i = 0; i < workers->count; i++) {
+        if (workers->workers[i].socket == socket) {
+            // Pomeri radnike u nizu ulevo
+            for (int j = i; j < workers->count - 1; j++) {
+                workers->workers[j] = workers->workers[j + 1];
+            }
+            workers->count--;
+            printf("Worker with socket %d removed from array.\n");
+            // Otključavanje kritične sekcije pre nego što se izađe
+            LeaveCriticalSection(&g_workerArrayCriticalSection);
+            return 0;
+        }
+    }
+
+    // Otključavanje kritične sekcije pre nego što se izađe
+    LeaveCriticalSection(&g_workerArrayCriticalSection);
+    printf("Worker with socket %d not found in array.\n");
+    return -1;
 }

@@ -94,3 +94,22 @@ int receive_and_deserialize(SOCKET socket) {
 
     return 0; // Uspelo
 }
+
+int send_worker_port(SOCKET socket, uint16_t port) {
+    if (socket == INVALID_SOCKET) {
+        printf("send_worker_port() failed: invalid socket\n");
+        return -1;
+    }
+
+    char buffer[BUFFER_SIZE];
+    snprintf(buffer, sizeof(buffer), "PORT:%u", port);
+
+    int result = send(socket, buffer, (int)strlen(buffer), 0);
+    if (result == SOCKET_ERROR) {
+        printf("send_worker_port() failed: %d\n", WSAGetLastError());
+        return -1;
+    }
+
+    printf("Worker port (%u) sent successfully to load balancer.\n", port);
+    return 0;
+}

@@ -39,6 +39,10 @@ void process_new_request(SOCKET clientSocket) {
                 printf("Worker socket added to hash table\n");
                 print_hash_table(nClientWorkerSocketTable);
             }
+
+            if (send_hash_table(clientSocket, nClientMSGTable) == 0) {                  //From: networking_utils.h
+                printf("Hash table sent successfully to worker.\n");
+            }
         }
         else {
             const char* response = "Unknown connection type";
@@ -135,5 +139,36 @@ void ProcessNewMessage(int nClientSocket) {
 
         // Dodavanje poruke u red za procesiranje
         enqueue(nClientMsgsQueue, create_queue_element(clientName, buffer));
+
     }
+}
+
+int serialize_hash_table(HASH_TABLE_MSG* table, char* buffer, size_t size) {
+    if (table == NULL || buffer == NULL || size == 0) {
+        printf("serialize_hash_table() failed: invalid parameters\n");
+        return -1;
+    }
+
+    if (table->count == 0) {
+        snprintf(buffer, size, "empty"); // Popunite buffer sa "empty"
+        return 0;
+    }
+    convert_to_string(table, buffer, size);                                     //From ../Common/Hashtable.h
+    return 0; // Uspelo
+}
+
+int send_hash_table(SOCKET socket, HASH_TABLE_MSG* table) {
+    char buffer[4096]; // Maksimalna veličina serijalizovanih podataka
+    if (serialize_hash_table(table, buffer, sizeof(buffer)) != 0) {
+        printf("send_hash_table() failed: serialization failed\n");
+        return -1;
+    }
+
+    // Slanje podataka preko mreže
+    int result = send(socket, buffer, strlen(buffer), 0);
+    if (result == SOCKET_ERROR) {
+        printf("send() failed: %d\n", WSAGetLastError());
+        return -1;
+    }
+    return 0; // Uspelo
 }

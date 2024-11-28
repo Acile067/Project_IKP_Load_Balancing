@@ -5,18 +5,21 @@
 #include <winsock.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>  // For malloc and free
 #include "../Common/hashtable.h"
 #include "../Common/queueLBtoWorker.h"
 
+#define MAX_TOKENS 100
+#define MAX_TOKEN_LEN 255
+
 // External hash table declaration
-extern HASH_TABLE* nClientWorkerSocketTable;
 extern QUEUE* nClientMsgsQueue;
 extern HASH_TABLE_MSG* nClientMSGTable;
 
 // Function declaration
-void process_new_request(SOCKET clientSocket);
-void ProcessNewMessageOrDisconnectWorker(int nWorkerSocket);
-void ProcessNewMessage(int nClientSocket);
-int serialize_hash_table(HASH_TABLE_MSG* table, char* buffer, size_t size);
-int send_hash_table(SOCKET socket, HASH_TABLE_MSG* table);
+int receive_hash_table(SOCKET socket, char* buffer, size_t size);
+int split_string(const char* str, char delimiter, char output[MAX_TOKENS][MAX_TOKEN_LEN]);
+int ParseFromStringToHashTable(char* data);
+int receive_and_deserialize(SOCKET socket);
+
 #endif // NETWORKING_UTILS_H

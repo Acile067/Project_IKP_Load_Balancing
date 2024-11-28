@@ -128,12 +128,22 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Init_resources.cpp" />
+    <ClCompile Include="Networking_utils.cpp" />
+    <ClCompile Include="Thread_utils.cpp" />
     <ClCompile Include="Worker.cpp" />
+    <ClCompile Include="Worker_socket.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common\Common.vcxproj">
       <Project>{bb58eed4-ea67-44c8-a4d8-547c1b56f491}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="init_resources.h" />
+    <ClInclude Include="networking_utils.h" />
+    <ClInclude Include="Thread_utils.h" />
+    <ClInclude Include="worker_socket.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

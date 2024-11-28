@@ -8,5 +8,5 @@
 
 // Function to initialize all required resources
 void initialize_resources(HASH_TABLE** socketTable, HASH_TABLE_MSG** msgTable, QUEUE** msgQueue);
-
+void free_resources(HASH_TABLE** socketTable, HASH_TABLE_MSG** msgTable, QUEUE** msgQueue);
 #endif // INIT_RESOURCES_H

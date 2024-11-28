@@ -13,14 +13,13 @@
 #define BACKLOG 20
 
 HASH_TABLE* nClientWorkerSocketTable = NULL;
+HASH_TABLE_MSG* nClientMSGTable = NULL;
+QUEUE* nClientMsgsQueue = NULL;
 
 int main()
 {
     ServerSocket server;
     
-    HASH_TABLE_MSG* nClientMSGTable = NULL;
-    QUEUE* nClientMsgsQueue = NULL;
-
     initialize_resources(&nClientWorkerSocketTable, &nClientMSGTable, &nClientMsgsQueue);   //From: init_resources.h
 
     if (!nClientWorkerSocketTable || !nClientMSGTable || !nClientMsgsQueue) {
@@ -59,7 +58,22 @@ int main()
     );
 
     if (threadHandle == NULL) {
-        fprintf(stderr, "Failed to create thread\n");
+        fprintf(stderr, "Failed to create new connections thread\n");
+        cleanup_server_socket(&server);                                 //From: load_balancer_socket.h
+        return EXIT_FAILURE;
+    }
+
+    HANDLE hThread = CreateThread(
+        NULL, 
+        0, 
+        ProcessMessagesThread, 
+        NULL, 
+        0, 
+        NULL
+    );
+
+    if (hThread == NULL) {
+        fprintf(stderr, "Failed to create msg processor thread\n");
         cleanup_server_socket(&server);                                 //From: load_balancer_socket.h
         return EXIT_FAILURE;
     }
@@ -68,14 +82,15 @@ int main()
 
     // Wait for the thread to finish (infinite wait for this example)
     WaitForSingleObject(threadHandle, INFINITE);
+    WaitForSingleObject(hThread, INFINITE);
 
     // Cleanup resources
     CloseHandle(threadHandle);
+    CloseHandle(hThread);
 
     // Cleanup server socket
+    WSACleanup();
+    free_resources(&nClientWorkerSocketTable, &nClientMSGTable, &nClientMsgsQueue); //From: init_resources.h
     cleanup_server_socket(&server);
     return EXIT_SUCCESS;
-
-    WSACleanup();
-    return 0;
 }

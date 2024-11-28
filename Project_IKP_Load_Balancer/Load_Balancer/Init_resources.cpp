@@ -17,3 +17,27 @@ void initialize_resources(HASH_TABLE** socketTable, HASH_TABLE_MSG** msgTable, Q
 
     printf("Resources initialized successfully.\n");
 }
+
+void free_resources(HASH_TABLE** socketTable, HASH_TABLE_MSG** msgTable, QUEUE** msgQueue) {
+    // Free socket hash table
+    if (socketTable != NULL && *socketTable != NULL) {
+        if (!free_hash_table(socketTable)) {
+            cout << "Failed to free socket table." << endl;
+        }
+    }
+
+    // Free message hash table
+    if (msgTable != NULL && *msgTable != NULL) {
+        if (!free_hash_table_msg(msgTable)) {
+            cout << "Failed to free message table." << endl;
+        }
+    }
+
+    // Free message queue
+    if (msgQueue != NULL && *msgQueue != NULL) {
+        delete_queue(*msgQueue);
+        *msgQueue = NULL;
+    }
+
+    printf("Resources freed successfully.\n");
+}

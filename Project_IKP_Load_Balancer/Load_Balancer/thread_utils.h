@@ -15,5 +15,6 @@ typedef struct {
 
 // Function declarations
 DWORD WINAPI AcceptConnectionsThread(LPVOID lpParam);
+DWORD WINAPI ProcessMessagesThread(LPVOID lpParam);
 
 #endif // THREAD_UTILS_H

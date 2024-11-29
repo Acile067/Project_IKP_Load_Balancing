@@ -4,151 +4,191 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <malloc.h>
+#include <windows.h>
+#include <iostream>
 
-// Kreira red sa datim kapacitetom
+using namespace std;
+
+// Funkcija za inicijalizaciju reda sa datim kapacitetom
 PORT_QUEUE* init_port_queue(int capacity) {
-    PORT_QUEUE* q = (PORT_QUEUE*)malloc(sizeof(PORT_QUEUE));
-    if (q == NULL) {
-        return NULL;  // Ako nije moguće alocirati memoriju za red
+    // Alociramo memoriju za red
+    PORT_QUEUE* queue = (PORT_QUEUE*)malloc(sizeof(PORT_QUEUE));
+    if (queue == nullptr) {
+        cout << "Memory allocation failed for the queue." << endl;
+        return nullptr;  // Ako alokacija ne uspe, vraća nullptr
     }
 
-    q->capacity = capacity;
-    q->front = 0;
-    q->rear = -1;
-    q->currentSize = 0;
-    q->elements = (PORT_QUEUEELEMENT*)malloc(capacity * sizeof(PORT_QUEUEELEMENT));
+    // Inicijalizacija kritične sekcije za sinhronizaciju u više niti
+    InitializeCriticalSection(&queue->cs);
 
-    if (q->elements == NULL) {
-        free(q);
-        return NULL;  // Ako nije moguće alocirati memoriju za elemente
+    queue->capacity = capacity;         // Postavlja kapacitet reda
+    queue->front = 0;                   // Inicijalizuje front na 0
+    queue->rear = -1;                   // Inicijalizuje rear na -1 (red je prazan)
+    queue->currentSize = 0;             // Inicijalizuje trenutnu veličinu reda
+
+    // Alocira memoriju za elemente reda
+    queue->elements = (PORT_QUEUEELEMENT*)malloc(sizeof(PORT_QUEUEELEMENT) * capacity);
+    if (queue->elements == nullptr) {
+        cout << "Memory allocation failed for queue elements." << endl;
+        free(queue);  // Oslobađa prethodno alociranu memoriju za red
+        return nullptr;  // Ako alokacija ne uspe, vraća nullptr
     }
 
-    InitializeCriticalSection(&q->cs);  // Inicijalizuje kritičnu sekciju za sinhronizaciju
-    return q;
+    // Inicijalizacija svakog elementa u redu
+    for (int i = 0; i < capacity; i++) {
+        queue->elements[i].clientName = nullptr;
+        queue->elements[i].data = nullptr;
+        queue->elements[i].ports = nullptr;
+        queue->elements[i].numPorts = 0;
+    }
+
+    return queue;  // Vraća pokazivač na kreirani red
 }
 
-// Proverava da li je red pun
+// Funkcija za proveru da li je red pun
 int is_port_queue_full(PORT_QUEUE* q) {
     return q->currentSize == q->capacity;
 }
 
-// Proverava da li je red prazan
+// Funkcija za proveru da li je red prazan
 int is_port_queue_empty(PORT_QUEUE* q) {
     return q->currentSize == 0;
 }
 
-// Dodaje element u red
+// Funkcija za dodavanje elementa u red
 void enqueue_port(PORT_QUEUE* q, PORT_QUEUEELEMENT* element) {
-    EnterCriticalSection(&q->cs);  // Zauzima kritičnu sekciju
+    EnterCriticalSection(&q->cs);  // Ulazimo u kritičnu sekciju
 
+    // Proveravamo da li je red pun
     if (is_port_queue_full(q)) {
-        printf("Red je pun!\n");
-        LeaveCriticalSection(&q->cs);
+        cerr << "Queue is full, cannot enqueue!" << endl;
+        LeaveCriticalSection(&q->cs);  // Napuštamo kritičnu sekciju
         return;
     }
 
-    q->rear = (q->rear + 1) % q->capacity;  // Circularni raspored
-    q->elements[q->rear] = *element;  // Dodaje element
+    // Povećavamo rear i dodajemo element
+    q->rear = (q->rear + 1) % q->capacity;
+    q->elements[q->rear] = *element;
     q->currentSize++;
 
-    LeaveCriticalSection(&q->cs);  // Oslobađa kritičnu sekciju
+    LeaveCriticalSection(&q->cs);  // Napuštamo kritičnu sekciju
 }
 
-// Uklanja element sa početka reda
+// Funkcija za uklanjanje elementa sa početka reda
 PORT_QUEUEELEMENT* dequeue_port(PORT_QUEUE* q) {
-    EnterCriticalSection(&q->cs);  // Zauzima kritičnu sekciju
+    EnterCriticalSection(&q->cs);  // Ulazimo u kritičnu sekciju
 
+    // Proveravamo da li je red prazan
     if (is_port_queue_empty(q)) {
-        printf("Red je prazan!\n");
-        LeaveCriticalSection(&q->cs);
-        return NULL;
+        cerr << "Queue is empty, cannot dequeue!" << endl;
+        LeaveCriticalSection(&q->cs);  // Napuštamo kritičnu sekciju
+        return nullptr;  // Red je prazan
     }
 
-    PORT_QUEUEELEMENT* element = &q->elements[q->front];
-    q->front = (q->front + 1) % q->capacity;  // Circularni raspored
+    // Uklanjamo element sa fronta
+    PORT_QUEUEELEMENT* removedElement = &q->elements[q->front];
+
+    // Pomera front i ažurira veličinu
+    q->front = (q->front + 1) % q->capacity;
     q->currentSize--;
 
-    LeaveCriticalSection(&q->cs);  // Oslobađa kritičnu sekciju
-    return element;
+    LeaveCriticalSection(&q->cs);  // Napuštamo kritičnu sekciju
+
+    return removedElement;  // Vraćamo uklonjeni element
 }
 
-// Ispisuje sadržaj reda
+// Funkcija za ispis sadržaja reda
 void print_port_queue(PORT_QUEUE* q) {
-    EnterCriticalSection(&q->cs);  // Zauzima kritičnu sekciju
+    EnterCriticalSection(&q->cs);  // Ulazimo u kritičnu sekciju
 
     if (is_port_queue_empty(q)) {
-        printf("Red je prazan!\n");
+        cout << "Queue is empty!" << endl;
     }
     else {
-        printf("Sadrzaj reda:\n");
+        cout << "Queue elements:" << endl;
         int i = q->front;
-        for (int j = 0; j < q->currentSize; j++) {
-            printf("Klijent: %s\n", q->elements[i].clientName);
-            printf("Portovi: ");
-            for (size_t k = 0; k < q->elements[i].numPorts; k++) {
-                printf("%d ", q->elements[i].ports[k]);
+        int count = 0;
+
+        // Ispisujemo sve elemente reda
+        while (count < q->currentSize) {
+            PORT_QUEUEELEMENT* element = &q->elements[i];
+            cout << "Client Name: " << element->clientName << ", Data: " << element->data << ", Ports: ";
+
+            // Ispisujemo portove
+            for (size_t j = 0; j < element->numPorts; j++) {
+                cout << element->ports[j] << " ";
             }
-            printf("\n");
-            i = (i + 1) % q->capacity;  // Circularni raspored
+            cout << endl;
+            i = (i + 1) % q->capacity;
+            count++;
         }
     }
 
-    LeaveCriticalSection(&q->cs);  // Oslobađa kritičnu sekciju
+    LeaveCriticalSection(&q->cs);  // Napuštamo kritičnu sekciju
 }
 
-// Vraća trenutnu veličinu reda
+// Funkcija za vraćanje trenutne veličine reda
 int get_current_size_port_queue(PORT_QUEUE* q) {
     return q->currentSize;
 }
 
-// Vraća kapacitet reda
+// Funkcija za vraćanje kapaciteta reda
 int get_capacity_port_queue(PORT_QUEUE* q) {
     return q->capacity;
 }
 
-// Briše red i oslobađa memoriju
+// Funkcija za brisanje reda i oslobađanje memorije
 void delete_port_queue(PORT_QUEUE* q) {
-    EnterCriticalSection(&q->cs);  // Zauzima kritičnu sekciju
-
-    for (int i = 0; i < q->currentSize; i++) {
-        free(q->elements[i].ports);  // Oslobađa memoriju za portove
-        free(q->elements[i].clientName);  // Oslobađa memoriju za ime klijenta
+    if (q == nullptr) {
+        return;  // Ako je pokazivač NULL, nema šta da se briše
     }
 
-    free(q->elements);  // Oslobađa memoriju za elemente reda
-    DeleteCriticalSection(&q->cs);  // Briše kritičnu sekciju
-    free(q);  // Oslobađa memoriju za red
+    EnterCriticalSection(&q->cs);  // Ulazi u kritičnu sekciju
+
+    // Oslobađamo memoriju za svaki element reda
+    for (int i = 0; i < q->capacity; i++) {
+        // Proveravamo da li su članovi inicijalizovani pre nego što ih oslobodimo
+        if (q->elements[i].clientName != nullptr) {
+            free(q->elements[i].clientName);
+            q->elements[i].clientName = nullptr;
+        }
+        if (q->elements[i].data != nullptr) {
+            free(q->elements[i].data);
+            q->elements[i].data = nullptr;
+        }
+        if (q->elements[i].ports != nullptr) {
+            free(q->elements[i].ports);
+            q->elements[i].ports = nullptr;
+        }
+    }
+
+    LeaveCriticalSection(&q->cs);  // Napuštamo kritičnu sekciju
+
+    // Oslobađamo memoriju za niz elemenata
+    free(q->elements);
+
+    // Uništavamo kritičnu sekciju
+    DeleteCriticalSection(&q->cs);
+
+    // Oslobađamo memoriju za samu strukturu reda
+    free(q);
 }
 
-// Kreira element reda
-PORT_QUEUEELEMENT* create_port_queue_element(const char* clientName, const uint16_t* ports, size_t numPorts) {
+// Funkcija za kreiranje elementa reda
+PORT_QUEUEELEMENT* create_port_queue_element(const char* clientName, const char* data, const uint16_t* ports, size_t numPorts) {
     PORT_QUEUEELEMENT* element = (PORT_QUEUEELEMENT*)malloc(sizeof(PORT_QUEUEELEMENT));
-    if (element == NULL) {
-        return NULL;  // Ako nije moguće alocirati memoriju
+    if (element == nullptr) {
+        cerr << "Error: Unable to allocate memory for the queue element!" << endl;
+        return nullptr;
     }
 
-    element->clientName = (char*)malloc(strlen(clientName) + 1);
-    if (element->clientName == NULL) {
-        free(element);
-        return NULL;  // Ako nije moguće alocirati memoriju za ime klijenta
-    }
-
-    // Safe copy of clientName using strcpy_s
-    if (strcpy_s(element->clientName, strlen(clientName) + 1, clientName) != 0) {
-        free(element->clientName);
-        free(element);
-        return NULL;  // Ako nije moguće kopirati ime klijenta
-    }
-
-    element->ports = (uint16_t*)malloc(numPorts * sizeof(uint16_t));
-    if (element->ports == NULL) {
-        free(element->clientName);
-        free(element);
-        return NULL;  // Ako nije moguće alocirati memoriju za portove
-    }
-    memcpy(element->ports, ports, numPorts * sizeof(uint16_t));
-    element->numPorts = numPorts;
+    // Alociramo i kopiramo podatke
+    element->clientName = _strdup(clientName);  // Kopira ime klijenta
+    element->data = _strdup(data);  // Kopira podatke
+    element->ports = (uint16_t*)malloc(sizeof(uint16_t) * numPorts);  // Alociramo memoriju za portove
+    memcpy(element->ports, ports, sizeof(uint16_t) * numPorts);  // Kopiramo portove
+    element->numPorts = numPorts;  // Broj portova
 
     return element;
 }
-

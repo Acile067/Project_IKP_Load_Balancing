@@ -18,12 +18,10 @@
 HASH_TABLE* nClientWorkerSocketTable = NULL;
 HASH_TABLE_MSG* nClientMSGTable = NULL;
 QUEUE* nClientMsgsQueue = NULL;
-PORT_QUEUE* nWokrerPortQueue = NULL; //////////
 WorkerArray g_WorkerArray;
 CRITICAL_SECTION g_workerArrayCriticalSection;
 int lastAssignedWorker = -1;
 QUEUEELEMENT* dequeued;
-PORT_QUEUEELEMENT* dequeuedPort; ///////////
 
 
 int main()
@@ -31,62 +29,40 @@ int main()
     ServerSocket server;
 
     ////////////
+
+    cout << "||||||||||||||||||||||||||||||||||||||||||||||||||||||" << endl;
     
+    // Kreiranje reda sa kapacitetom 5
+    PORT_QUEUE* queue = init_port_queue(5);
 
-
-    // 1. Inicijalizacija reda sa kapacitetom od 3 (možete promeniti kapacitet)
-    PORT_QUEUE* queue = init_port_queue(3);
-    if (queue == NULL) {
-        printf("Greska pri inicijalizaciji reda.\n");
-        return -1;
-    }
-
-    // 2. Kreiranje dva elementa reda
-    uint16_t ports1[] = { 80, 443 };
-    PORT_QUEUEELEMENT* element1 = create_port_queue_element("Klijent1", ports1, 2);
-
-    uint16_t ports2[] = { 8080, 9090 };
-    PORT_QUEUEELEMENT* element2 = create_port_queue_element("Klijent2", ports2, 2);
-
-    if (element1 == NULL || element2 == NULL) {
-        printf("Greska pri kreiranju elemenata.\n");
-        // Oslobađanje memorije pre izlaska, samo ako je alociranje failovalo
-        if (element1 != NULL) {
-            free(element1->clientName);
-            free(element1->ports);
-            free(element1);
-        }
-        if (element2 != NULL) {
-            free(element2->clientName);
-            free(element2->ports);
-            free(element2);
-        }
-        delete_port_queue(queue);  // Oslobađanje memorije reda
-        return -1;
-    }
-
-    // 3. Dodavanje elemenata u red
+    // Kreiranje i dodavanje prvog elementa
+    uint16_t ports1[] = { 8080, 9090 };
+    PORT_QUEUEELEMENT* element1 = create_port_queue_element("Client1", "Data1", ports1, 2);
     enqueue_port(queue, element1);
+
+    // Kreiranje i dodavanje drugog elementa
+    uint16_t ports2[] = { 1234, 5678 };
+    PORT_QUEUEELEMENT* element2 = create_port_queue_element("Client2", "Data2", ports2, 2);
     enqueue_port(queue, element2);
 
-    // 4. Ispisivanje sadržaja reda
+    // Ispis trenutnog sadržaja reda
+    cout << "Queue after enqueuing two elements:" << endl;
     print_port_queue(queue);
 
-    // 5. Uklanjanje jednog elementa (dequeue)
-    dequeuedPort = dequeue_port(queue);
-    if (dequeuedPort != NULL) {
-        printf("Uklonjen element: %s\n", dequeuedPort->clientName);
+    // Dequeuing prvi element
+    PORT_QUEUEELEMENT* dequeuedElement = dequeue_port(queue);
+    if (dequeuedElement) {
+        cout << "Dequeued element: " << dequeuedElement->clientName << ", " << dequeuedElement->data << endl;
     }
 
-    // 6. Ponovno ispisivanje reda nakon dequeue
+    // Ispis sadržaja reda nakon dequeue
+    cout << "\nQueue after dequeuing one element:" << endl;
     print_port_queue(queue);
 
-    // Oslobađanje memorije
-    delete_port_queue(queue);  // Oslobađanje memorije reda (ovo treba da oslobodi sve što je alocirano za elemente)
+    // Uništavanje reda i oslobađanje memorije
+    delete_port_queue(queue);
 
-    // Oslobađanje memorije za elemente - NE treba više da se oslobađa element1 i element2 ovde ako je delete_port_queue već oslobađao
-    // Ako ste prethodno oslobodili u delete_port_queue, ne treba ponovno pozivati `free`
-
+    cout << "||||||||||||||||||||||||||||||||||||||||||||||||||||||" << endl;
 
 
     ////////////

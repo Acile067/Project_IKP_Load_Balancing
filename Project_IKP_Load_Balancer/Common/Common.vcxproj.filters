@@ -27,6 +27,9 @@
     <ClCompile Include="QueueLBtoWorker.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="QueueWorkerToWorker.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="list.h">
@@ -39,6 +42,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="queueLBtoWorker.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="queueWorkerToWorker.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

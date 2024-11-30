@@ -2,6 +2,7 @@
 
 extern QUEUE* nClientMsgsQueue;
 extern HASH_TABLE_MSG* nClientMSGTable;
+extern PORT_QUEUE* queueWithClientNameMsgPorts;
 
 int receive_hash_table(SOCKET socket, char* buffer, size_t size) {
     if (buffer == NULL || size == 0) {
@@ -186,11 +187,19 @@ void receive_combined_data(SOCKET serverSocket) {
         printf("Client Data: %s\n", receivedData.data ? receivedData.data : "NULL");
 
         printf("Worker Array:\n");
+        uint16_t* ports = (uint16_t*)malloc(receivedData.workerArray.count * sizeof(uint16_t));
+        if (!ports) {
+            printf("Failed to allocate memory for ports.\n");
+            return;
+        }
+
         for (int i = 0; i < receivedData.workerArray.count; i++) {
             printf("  Worker %d - Socket: %d, Port: %u\n",
                 i,
                 receivedData.workerArray.workers[i].socket,
                 receivedData.workerArray.workers[i].port);
+
+            ports[i] = receivedData.workerArray.workers[i].port;
         }
 
         //Dodajemo u tabelu
@@ -202,9 +211,14 @@ void receive_combined_data(SOCKET serverSocket) {
 
         print_hash_table_msg(nClientMSGTable);
 
-        //TODO Dodati ovde i u queue
+                                                                                // "client-123", "msg1", {5555, 6666}, 2
+        PORT_QUEUEELEMENT* element = create_port_queue_element(receivedData.clientName, receivedData.data, ports, receivedData.workerArray.count);
 
+        enqueue_port(queueWithClientNameMsgPorts, element);
 
+        print_port_queue(queueWithClientNameMsgPorts);
+
+        free(ports);
     }
     else {
         printf("Failed to deserialize received data.\n");
@@ -214,3 +228,50 @@ void receive_combined_data(SOCKET serverSocket) {
     free(receivedData.clientName);
     free(receivedData.data);
 }
+
+
+int serialize_message(const ClientMessage* message, char** buffer, int* size) {
+    int clientNameLen = strlen(message->clientName) + 1; // +1 za '\0'
+    int dataLen = strlen(message->data) + 1;
+
+    *size = sizeof(int) * 2 + clientNameLen + dataLen;
+    *buffer = (char*)malloc(*size);
+    if (*buffer == nullptr) {
+        return -1; // Alokacija memorije nije uspela
+    }
+
+    char* ptr = *buffer;
+    memcpy(ptr, &clientNameLen, sizeof(int));
+    ptr += sizeof(int);
+    memcpy(ptr, message->clientName, clientNameLen);
+    ptr += clientNameLen;
+    memcpy(ptr, &dataLen, sizeof(int));
+    ptr += sizeof(int);
+    memcpy(ptr, message->data, dataLen);
+
+    return 0; // Uspelo
+}
+
+int deserialize_message(const char* buffer, ClientMessage* message) {
+    const char* ptr = buffer;
+    int clientNameLen, dataLen;
+
+    memcpy(&clientNameLen, ptr, sizeof(int));
+    ptr += sizeof(int);
+    message->clientName = (char*)malloc(clientNameLen);
+    if (message->clientName == nullptr) return -1;
+    memcpy(message->clientName, ptr, clientNameLen);
+    ptr += clientNameLen;
+
+    memcpy(&dataLen, ptr, sizeof(int));
+    ptr += sizeof(int);
+    message->data = (char*)malloc(dataLen);
+    if (message->data == nullptr) {
+        free(message->clientName);
+        return -1;
+    }
+    memcpy(message->data, ptr, dataLen);
+
+    return 0; // Uspelo
+}
+

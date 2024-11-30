@@ -8,6 +8,7 @@
 #include <stdlib.h>  // For malloc and free
 #include "../Common/hashtable.h"
 #include "../Common/queueLBtoWorker.h"
+#include "../Common/queueWorkerToWorker.h"
 
 #define MAX_TOKENS 100
 #define MAX_TOKEN_LEN 255
@@ -17,6 +18,7 @@
 // External hash table declaration
 extern QUEUE* nClientMsgsQueue;
 extern HASH_TABLE_MSG* nClientMSGTable;
+extern PORT_QUEUE* queueWithClientNameMsgPorts;
 
 typedef struct {
     SOCKET socket;
@@ -37,6 +39,12 @@ typedef struct {
     char* data;        // Podaci koji se čuvaju u ovoj strukturi
 } CombinedDataStructure;
 
+typedef struct {
+    char* clientName;
+    char* data;
+} ClientMessage;
+
+
 // Function declaration
 int receive_hash_table(SOCKET socket, char* buffer, size_t size);
 int split_string(const char* str, char delimiter, char output[MAX_TOKENS][MAX_TOKEN_LEN]);
@@ -45,5 +53,7 @@ int receive_and_deserialize(SOCKET socket);
 int send_worker_port(SOCKET socket, uint16_t port);
 int deserialize_combined_data_structure(char* buffer, int bufferSize, CombinedDataStructure* data);
 void receive_combined_data(SOCKET serverSocket);
+int serialize_message(const ClientMessage* message, char** buffer, int* size);
+int deserialize_message(const char* buffer, ClientMessage* message);
 
 #endif // NETWORKING_UTILS_H

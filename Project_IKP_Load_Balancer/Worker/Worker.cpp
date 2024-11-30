@@ -12,12 +12,15 @@
 
 HASH_TABLE_MSG* nClientMSGTable = NULL;
 QUEUE* nClientMsgsQueue = NULL;
+PORT_QUEUE* queueWithClientNameMsgPorts = NULL;
 
 int main()
 {
     WorkerSockets workerSockets;
 
-    initialize_resources(&nClientMSGTable, &nClientMsgsQueue);                          //From: init_resources.h
+    initialize_resources(&nClientMSGTable, 
+                         &nClientMsgsQueue, 
+                         &queueWithClientNameMsgPorts);                                 //From: init_resources.h
 
     if (initialize_worker_sockets(&workerSockets, "127.0.0.1", 5059) != 0) {            //From: worker_socket.h
         fprintf(stderr, "Failed to initialize worker sockets.\n");
@@ -39,6 +42,8 @@ int main()
     }
 
     HANDLE hThread;
+    HANDLE hWorkerConnectionThread;
+    HANDLE hWorkerConnectToWorkersThread;
 
     // Kreiranje niti i prosleđivanje socket-a kao parametra
     hThread = CreateThread(
@@ -55,10 +60,41 @@ int main()
         return -1;
     }
 
-    WaitForSingleObject(hThread, INFINITE);
-    CloseHandle(hThread);
+    hWorkerConnectionThread = CreateThread(
+        NULL, 
+        0, 
+        AcceptWorkerConnections, 
+        &workerSockets.listeningSocket, 
+        0, 
+        NULL);
 
-    free_resources(&nClientMSGTable, &nClientMsgsQueue);                                //From: init_resources.h
+    if (hWorkerConnectionThread == NULL) {
+        printf("Failed to create thread: %d\n", GetLastError());
+        return -1;
+    }
+
+    hWorkerConnectToWorkersThread = CreateThread(
+        NULL,
+        0,
+        ConnectToWorkersAndSendMsg,
+        &workerSockets.listeningPort,
+        0,
+        NULL);
+
+    if (hWorkerConnectToWorkersThread == NULL) {
+        printf("Failed to create thread: %d\n", GetLastError());
+        return -1;
+    }
+
+    WaitForSingleObject(hThread, INFINITE);
+    WaitForSingleObject(hWorkerConnectionThread, INFINITE);
+    WaitForSingleObject(hWorkerConnectToWorkersThread, INFINITE);
+
+    CloseHandle(hThread);
+    CloseHandle(hWorkerConnectionThread);
+    CloseHandle(hWorkerConnectToWorkersThread);
+
+    free_resources(&nClientMSGTable, &nClientMsgsQueue, &queueWithClientNameMsgPorts);                                //From: init_resources.h
     cleanup_worker_sockets(&workerSockets);
     return 0;
 }

@@ -77,26 +77,26 @@ void enqueue_port(PORT_QUEUE* q, PORT_QUEUEELEMENT* element) {
 
 // Funkcija za uklanjanje elementa sa početka reda
 PORT_QUEUEELEMENT* dequeue_port(PORT_QUEUE* q) {
-    EnterCriticalSection(&q->cs);  // Ulazimo u kritičnu sekciju
+    EnterCriticalSection(&q->cs);
 
-    // Proveravamo da li je red prazan
     if (is_port_queue_empty(q)) {
-        cerr << "Queue is empty, cannot dequeue!" << endl;
-        LeaveCriticalSection(&q->cs);  // Napuštamo kritičnu sekciju
-        return nullptr;  // Red je prazan
+        LeaveCriticalSection(&q->cs);
+        return nullptr;
     }
 
-    // Uklanjamo element sa fronta
-    PORT_QUEUEELEMENT* removedElement = &q->elements[q->front];
+    // Kopiraj element u novu memoriju
+    PORT_QUEUEELEMENT* removedElement = (PORT_QUEUEELEMENT*)malloc(sizeof(PORT_QUEUEELEMENT));
+    if (removedElement != nullptr) {
+        *removedElement = q->elements[q->front]; // Plitka kopija
+        q->front = (q->front + 1) % q->capacity;
+        q->currentSize--;
+    }
 
-    // Pomera front i ažurira veličinu
-    q->front = (q->front + 1) % q->capacity;
-    q->currentSize--;
+    LeaveCriticalSection(&q->cs);
 
-    LeaveCriticalSection(&q->cs);  // Napuštamo kritičnu sekciju
-
-    return removedElement;  // Vraćamo uklonjeni element
+    return removedElement;
 }
+
 
 // Funkcija za ispis sadržaja reda
 void print_port_queue(PORT_QUEUE* q) {

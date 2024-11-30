@@ -50,7 +50,7 @@ DWORD WINAPI ProcessMessagesThread(LPVOID lpParam) {
     fd_set fr, fe;
     int nMaxFd = 0; // Maksimalni socket ID za `select`
 
-    while (true) {
+    while (1) {
         FD_ZERO(&fr);
         FD_ZERO(&fe);
 
@@ -118,7 +118,7 @@ DWORD WINAPI ProcessMessagesThread(LPVOID lpParam) {
 }
 
 DWORD WINAPI SendMassagesToWorkersRoundRobin(LPVOID lpParam) {
-    while (true)
+    while (1)
     {
         if (nClientMsgsQueue->currentSize > 0)
         {

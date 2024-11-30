@@ -4,7 +4,14 @@
 
 #include <winsock.h>
 #include <windows.h>
+#include "../Common/queueWorkerToWorker.h"
+#include "../Common/hashtable.h"
+
+extern PORT_QUEUE* queueWithClientNameMsgPorts;
+extern HASH_TABLE_MSG* nClientMSGTable;
 
 DWORD WINAPI ProcessLBMessage(LPVOID lpParam);
+DWORD WINAPI AcceptWorkerConnections(LPVOID lpParam);
+DWORD WINAPI ConnectToWorkersAndSendMsg(LPVOID lpParam);
 
 #endif // THREAD_UTILS_H

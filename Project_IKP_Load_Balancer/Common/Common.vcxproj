@@ -127,16 +127,18 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Common.cpp" />
     <ClCompile Include="Hashtable.cpp" />
+    <ClCompile Include="HashtableMsg.cpp" />
     <ClCompile Include="List.cpp" />
+    <ClCompile Include="ListMsg.cpp" />
     <ClCompile Include="QueueLBtoWorker.cpp" />
     <ClCompile Include="QueueWorkerToWorker.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="common.h" />
     <ClInclude Include="hashtable.h" />
+    <ClInclude Include="hashtablemsg.h" />
     <ClInclude Include="list.h" />
+    <ClInclude Include="listmsg.h" />
     <ClInclude Include="queueLBtoWorker.h" />
     <ClInclude Include="queueWorkerToWorker.h" />
   </ItemGroup>

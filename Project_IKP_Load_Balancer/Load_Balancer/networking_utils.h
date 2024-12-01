@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "../Common/hashtable.h"
+#include "../Common/hashtablemsg.h"
 #include "../Common/queueLBtoWorker.h"
 
 #define MAX_WORKERS 50

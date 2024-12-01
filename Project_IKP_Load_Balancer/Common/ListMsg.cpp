@@ -1,11 +1,13 @@
 ﻿#pragma once
 
-#include "list.h"
+#include "listmsg.h"
+
+#pragma region function for ..._MSG strukturu
 
 // Inicijalizacija liste
-LIST* init_list()
+LIST_MSG* init_list_msg()
 {
-    LIST* list = (LIST*)malloc(sizeof(LIST));
+    LIST_MSG* list = (LIST_MSG*)malloc(sizeof(LIST_MSG));
     if (list == NULL)
     {
         cout << "init_list() failed: out of memory" << endl;
@@ -21,7 +23,7 @@ LIST* init_list()
 }
 
 // Dodavanje elementa na početak liste
-void add_list_front(LIST* list, LIST_ITEM data)
+void add_list_front_msg(LIST_MSG* list, LIST_ITEM_MSG data)
 {
     if (list == NULL)
     {
@@ -31,7 +33,8 @@ void add_list_front(LIST* list, LIST_ITEM data)
 
     EnterCriticalSection(&list->cs);
 
-    LIST_ITEM* item = (LIST_ITEM*)malloc(sizeof(LIST_ITEM));
+    // Kreiramo novu stavku liste
+    LIST_ITEM_MSG* item = (LIST_ITEM_MSG*)malloc(sizeof(LIST_ITEM_MSG));
     if (item == NULL)
     {
         cout << "add_list_front() failed: out of memory" << endl;
@@ -39,9 +42,21 @@ void add_list_front(LIST* list, LIST_ITEM data)
         return;
     }
 
-    item->data = data.data;
+    // Prvo kopiramo podatke
+    item->data = (char*)malloc(strlen(data.data) + 1);  // Alociramo memoriju za string
+    if (item->data == NULL)
+    {
+        cout << "add_list_front() failed: out of memory for data" << endl;
+        free(item);  // Oslobađamo memoriju za item, jer ne možemo da nastavimo
+        LeaveCriticalSection(&list->cs);
+        return;
+    }
+
+    item->data = _strdup(data.data); // Kopiramo podatke
+
     item->next = NULL;
 
+    // Ako je lista prazna, postavljamo head i tail na ovaj element
     if (list->count == 0)
     {
         list->head = item;
@@ -54,48 +69,12 @@ void add_list_front(LIST* list, LIST_ITEM data)
     }
 
     list->count++;
-    LeaveCriticalSection(&list->cs);
-}
 
-// Dodavanje elementa na kraj liste
-void add_list_back(LIST* list, LIST_ITEM data)
-{
-    if (list == NULL)
-    {
-        cout << "add_list_back() failed: list is NULL" << endl;
-        return;
-    }
-
-    EnterCriticalSection(&list->cs);
-
-    LIST_ITEM* item = (LIST_ITEM*)malloc(sizeof(LIST_ITEM));
-    if (item == NULL)
-    {
-        cout << "add_list_back() failed: out of memory" << endl;
-        LeaveCriticalSection(&list->cs);
-        return;
-    }
-
-    item->data = data.data;
-    item->next = NULL;
-
-    if (list->count == 0)
-    {
-        list->head = item;
-        list->tail = item;
-    }
-    else
-    {
-        list->tail->next = item;
-        list->tail = item;
-    }
-
-    list->count++;
     LeaveCriticalSection(&list->cs);
 }
 
 // Dohvatanje stavke sa određenog indeksa
-LIST_ITEM* get_list_item(LIST* list, int index)
+LIST_ITEM_MSG* get_list_item_msg(LIST_MSG* list, int index)
 {
     if (list == NULL)
     {
@@ -109,7 +88,7 @@ LIST_ITEM* get_list_item(LIST* list, int index)
         return NULL;
     }
 
-    LIST_ITEM* item = list->head;
+    LIST_ITEM_MSG* item = list->head;
     for (int i = 0; i < index; i++)
     {
         item = item->next;
@@ -118,7 +97,8 @@ LIST_ITEM* get_list_item(LIST* list, int index)
     return item;
 }
 
-bool remove_from_list(LIST* list, int index)
+
+bool remove_from_list_msg(LIST_MSG* list, int index)
 {
     if (list == NULL)
     {
@@ -134,8 +114,8 @@ bool remove_from_list(LIST* list, int index)
 
     EnterCriticalSection(&list->cs);
 
-    LIST_ITEM* item = list->head;
-    LIST_ITEM* prev = NULL;
+    LIST_ITEM_MSG* item = list->head;
+    LIST_ITEM_MSG* prev = NULL;
 
     // Find the element at the specified index
     for (int i = 0; i < index; i++)
@@ -166,24 +146,15 @@ bool remove_from_list(LIST* list, int index)
         list->tail = prev;
     }
 
-    // Ensure socket is valid before closing
-    if (item->data != INVALID_SOCKET)
-    {
-        closesocket(item->data);
-        item->data = INVALID_SOCKET;  // Mark as invalid to avoid reuse
-    }
-
     free(item);
-    item = NULL;
     list->count--;
     LeaveCriticalSection(&list->cs);
 
     return true;
 }
 
-
 // Čišćenje liste
-bool clear_list(LIST* list)
+bool clear_list_msg(LIST_MSG* list)
 {
     if (list == NULL)
     {
@@ -195,7 +166,7 @@ bool clear_list(LIST* list)
 
     while (list->count > 0)
     {
-        if (!remove_from_list(list, 0))
+        if (!remove_from_list_msg(list, 0))
         {
             cout << "[WARN] clear_list() failed to remove an element from the list" << endl;
         }
@@ -206,7 +177,7 @@ bool clear_list(LIST* list)
 }
 
 // Oslobađanje resursa liste
-bool free_list(LIST** list)
+bool free_list_msg(LIST_MSG** list)
 {
     if (list == NULL || *list == NULL)
     {
@@ -215,7 +186,7 @@ bool free_list(LIST** list)
     }
 
     EnterCriticalSection(&(*list)->cs);
-    clear_list(*list);
+    clear_list_msg(*list);
 
     DeleteCriticalSection(&(*list)->cs);
 
@@ -226,7 +197,7 @@ bool free_list(LIST** list)
 }
 
 // Ispisivanje liste
-void print_list(LIST* list)
+void print_list_msg(LIST_MSG* list)
 {
     if (list == NULL)
     {
@@ -240,14 +211,16 @@ void print_list(LIST* list)
         return;
     }
 
-    LIST_ITEM* item = list->head;
+    LIST_ITEM_MSG* item = list->head;
     cout << "-------- List --------" << endl;
     cout << "List count: " << list->count << endl << "[";
     while (item != NULL)
     {
-        cout << "Socket: " << item->data << ", ";
+        cout << "Data: " << item->data << ", ";
         item = item->next;
     }
     cout << "]" << endl;
     cout << "----------------------" << endl;
 }
+
+#pragma endregion

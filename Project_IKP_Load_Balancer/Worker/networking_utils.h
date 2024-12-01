@@ -7,6 +7,7 @@
 #include <string.h>
 #include <stdlib.h>  // For malloc and free
 #include "../Common/hashtable.h"
+#include "../Common/hashtablemsg.h"
 #include "../Common/queueLBtoWorker.h"
 #include "../Common/queueWorkerToWorker.h"
 

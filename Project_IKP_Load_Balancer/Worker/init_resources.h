@@ -4,6 +4,7 @@
 #define QUEUESIZE 20
 
 #include "../Common/hashtable.h"
+#include "../Common/hashtablemsg.h"
 #include "../Common/queueLBtoWorker.h"
 #include "../Common/queueWorkerToWorker.h"
 

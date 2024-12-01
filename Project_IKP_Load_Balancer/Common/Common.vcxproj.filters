@@ -15,9 +15,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Common.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Hashtable.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -30,6 +27,12 @@
     <ClCompile Include="QueueWorkerToWorker.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ListMsg.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="HashtableMsg.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="list.h">
@@ -38,13 +41,16 @@
     <ClInclude Include="hashtable.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="common.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="queueLBtoWorker.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="queueWorkerToWorker.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="hashtablemsg.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="listmsg.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -26,6 +26,9 @@ if not exist "%WORKER_EXEC%" (
 rem Pokrećemo Load Balancer
 start cmd /k "%LB_EXEC%"
 
+rem Pauza od 2 sekunde
+timeout /t 2 /nobreak
+
 rem Pokrećemo 2 klijenta
 start cmd /k "%CLIENT_EXEC%"
 start cmd /k "%CLIENT_EXEC%"

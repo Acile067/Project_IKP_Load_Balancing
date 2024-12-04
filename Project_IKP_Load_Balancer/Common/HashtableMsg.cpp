@@ -1,11 +1,12 @@
 ﻿#pragma once
 
-#include "hashtable.h"
+#include "hashtablemsg.h"
 
-// Inicijalizacija djb2hash tabele
-HASH_TABLE* init_hash_table()
+#pragma region functions for the _MSG structure
+// Inicijalizacija djb2hash_msg tabele
+HASH_TABLE_MSG* init_hash_table_msg()
 {
-    HASH_TABLE* table = (HASH_TABLE*)malloc(sizeof(HASH_TABLE));
+    HASH_TABLE_MSG* table = (HASH_TABLE_MSG*)malloc(sizeof(HASH_TABLE_MSG));
     if (table == NULL)
     {
         cout << "init_hash_table() failed: out of memory" << endl;
@@ -13,7 +14,7 @@ HASH_TABLE* init_hash_table()
     }
     table->count = 0;
 
-    table->items = (HASH_ITEM*)malloc(sizeof(HASH_ITEM) * TABLE_SIZE);
+    table->items = (HASH_ITEM_MSG*)malloc(sizeof(HASH_ITEM_MSG) * TABLE_SIZE);
     if (table->items == NULL)
     {
         cout << "init_hash_table() failed: out of memory" << endl;
@@ -32,7 +33,7 @@ HASH_TABLE* init_hash_table()
 }
 
 // Hash funkcija koristi djb2 algoritam
-unsigned int djb2hash(const char* key)
+unsigned int djb2hash_msg(const char* key)
 {
     if (key == NULL)
     {
@@ -55,7 +56,7 @@ unsigned int djb2hash(const char* key)
 }
 
 // Dodavanje liste u djb2hash tabelu
-bool add_list_table(HASH_TABLE* table, const char* key)
+bool add_list_table_msg(HASH_TABLE_MSG* table, const char* key)
 {
     if (table == NULL)
     {
@@ -77,7 +78,7 @@ bool add_list_table(HASH_TABLE* table, const char* key)
 
     EnterCriticalSection(&table->cs);
 
-    int index = djb2hash(key);
+    int index = djb2hash_msg(key);
     if (index == -1)
     {
         cout << "add_list_table() failed: djb2hash() failed" << endl;
@@ -85,7 +86,7 @@ bool add_list_table(HASH_TABLE* table, const char* key)
         return false;
     }
 
-    table->items[index].list = init_list();
+    table->items[index].list = init_list_msg();
     if (table->items[index].list == NULL)
     {
         cout << "add_list_table() failed: init_list() failed" << endl;
@@ -107,7 +108,7 @@ bool add_list_table(HASH_TABLE* table, const char* key)
 }
 
 // Dodavanje stavke u tabelu
-bool add_table_item(HASH_TABLE* table, const char* key, SOCKET sock)
+bool add_table_item_msg(HASH_TABLE_MSG* table, const char* key, const char* data)
 {
     if (table == NULL)
     {
@@ -129,27 +130,27 @@ bool add_table_item(HASH_TABLE* table, const char* key, SOCKET sock)
 
     EnterCriticalSection(&table->cs);
 
-    int index = djb2hash(key);
+    int index = djb2hash_msg(key);
     if (index == -1)
     {
-        cout << "add_table_item() failed: djb2hash() failed" << endl;
+        cout << "add_table_item() failed: djb2hash_msg() failed" << endl;
         LeaveCriticalSection(&table->cs);
         return false;
     }
-    HASH_ITEM* item = &table->items[index];
+    HASH_ITEM_MSG* item = &table->items[index];
     if (item->list == NULL) {
         cout << "add_table_item() failed: list for key is NULL" << endl;
     }
 
-    LIST_ITEM newItem = { sock, NULL };
-    add_list_front(item->list, newItem);
+    LIST_ITEM_MSG newItem = { data, NULL };
+    add_list_front_msg(item->list, newItem);
 
     LeaveCriticalSection(&table->cs);
     return true;
 }
 
-// Dohvatanje stavke iz djb2hash tabele
-LIST* get_table_item(HASH_TABLE* table, const char* key)
+// Dohvatanje stavke iz djb2hash_msg tabele
+LIST_MSG* get_table_item_msg(HASH_TABLE_MSG* table, const char* key)
 {
     if (table == NULL)
     {
@@ -171,21 +172,21 @@ LIST* get_table_item(HASH_TABLE* table, const char* key)
 
     EnterCriticalSection(&table->cs);
 
-    int index = djb2hash(key);
+    int index = djb2hash_msg(key);
     if (index == -1)
     {
-        cout << "get_table_item() failed: djb2hash() failed" << endl;
+        cout << "get_table_item() failed: djb2hash_msg() failed" << endl;
         LeaveCriticalSection(&table->cs);
         return NULL;
     }
 
-    HASH_ITEM item = table->items[index];
+    HASH_ITEM_MSG item = table->items[index];
     LeaveCriticalSection(&table->cs);
     return item.list;
 }
 
-// Provera da li ključ postoji u djb2hash tabeli
-bool has_key(HASH_TABLE* table, const char* key)
+// Provera da li ključ postoji u djb2hash_msg tabeli
+bool has_key_msg(HASH_TABLE_MSG* table, const char* key)
 {
     if (table == NULL)
     {
@@ -207,7 +208,7 @@ bool has_key(HASH_TABLE* table, const char* key)
 
     EnterCriticalSection(&table->cs);
 
-    int index = djb2hash(key);
+    int index = djb2hash_msg(key);
     if (index == -1)
     {
         cout << "has_key() failed: djb2hash() failed" << endl;
@@ -226,7 +227,7 @@ bool has_key(HASH_TABLE* table, const char* key)
 }
 
 // Uklanjanje stavke iz djb2hash tabele
-bool remove_table_item(HASH_TABLE* table, const char* key)
+bool remove_table_item_msg(HASH_TABLE_MSG* table, const char* key)
 {
     if (table == NULL)
     {
@@ -248,10 +249,10 @@ bool remove_table_item(HASH_TABLE* table, const char* key)
 
     EnterCriticalSection(&table->cs);
 
-    int index = djb2hash(key);
+    int index = djb2hash_msg(key);
     if (index == -1)
     {
-        cout << "remove_table_item() failed: djb2hash() failed" << endl;
+        cout << "remove_table_item() failed: djb2hash_msg() failed" << endl;
         LeaveCriticalSection(&table->cs);
         return false;
     }
@@ -263,7 +264,7 @@ bool remove_table_item(HASH_TABLE* table, const char* key)
         return false;
     }
 
-    if (!clear_list(table->items[index].list))
+    if (!clear_list_msg(table->items[index].list))
     {
         cout << "remove_table_item() failed: clear_list() failed" << endl;
         LeaveCriticalSection(&table->cs);
@@ -276,8 +277,8 @@ bool remove_table_item(HASH_TABLE* table, const char* key)
     return true;
 }
 
-// Oslobađanje djb2hash tabele
-bool free_hash_table(HASH_TABLE** table)
+// Oslobađanje djb2hash_msg tabele
+bool free_hash_table_msg(HASH_TABLE_MSG** table)
 {
     if (table == NULL || *table == NULL)
     {
@@ -290,7 +291,7 @@ bool free_hash_table(HASH_TABLE** table)
     {
         if ((*table)->items[i].list != NULL)
         {
-            if (!free_list(&(*table)->items[i].list))
+            if (!free_list_msg(&(*table)->items[i].list))
             {
                 cout << "free_hash_table() failed: could not free list at index " << i << endl;
                 LeaveCriticalSection(&(*table)->cs);
@@ -316,8 +317,8 @@ bool free_hash_table(HASH_TABLE** table)
     return true;
 }
 
-// Ispisivanje sadržaja djb2hash tabele
-void print_hash_table(HASH_TABLE* table)
+// Ispisivanje sadržaja djb2hash_msg tabele
+void print_hash_table_msg(HASH_TABLE_MSG* table)
 {
     if (table == NULL)
     {
@@ -325,7 +326,7 @@ void print_hash_table(HASH_TABLE* table)
         return;
     }
 
-    cout << "======== Socket Table ========" << endl;
+    cout << "======== Messages Table ========" << endl;
     cout << "Count: " << table->count << endl << endl;
     for (int i = 0; i < TABLE_SIZE; i++)
     {
@@ -333,9 +334,67 @@ void print_hash_table(HASH_TABLE* table)
             cout << "Index: " << i << endl;
             cout << "Key: " << table->items[i].key << endl;
             cout << "List:" << endl;
-            print_list(table->items[i].list);
+            print_list_msg(table->items[i].list);
             cout << endl;
         }
     }
     cout << "============================" << endl;
 }
+
+void convert_to_string(HASH_TABLE_MSG* table, char* ret, size_t size)
+{
+    if (ret == NULL || size == 0) {
+        return;
+    }
+
+    memset(ret, 0, size); // Resetuj izlazni string
+
+    size_t currentIndex = 0; // Trenutna pozicija u `ret`
+
+    for (int i = 0; i < TABLE_SIZE; i++)
+    {
+        if (table->items[i].key != NULL && table->items[i].list != NULL) {
+            // Proveri koliko prostora je ostalo u `ret`
+            size_t remaining = size - currentIndex;
+
+            // Dodaj ključeve u string samo ako ima dovoljno prostora
+            if (remaining > 1) { // Ostaviti mesta za '\0'
+
+                // Početak za klijenta
+                int written = snprintf(ret + currentIndex, remaining, "%s:", table->items[i].key);
+                if (written > 0 && written < remaining) {
+                    currentIndex += written; // Povećaj indeks za napisani broj znakova
+                    remaining -= written;
+                }
+                else {
+                    break; // Prostor nije dovoljan
+                }
+
+                // Iteracija kroz listu poruka
+                LIST_ITEM_MSG* item = table->items[i].list->head;
+                while (item != NULL) {
+                    // Dodaj poruku u string
+                    written = snprintf(ret + currentIndex, remaining, "%s%s", item->data, item->next ? "," : "");
+                    if (written > 0 && written < remaining) {
+                        currentIndex += written;
+                        remaining -= written;
+                    }
+                    else {
+                        break; // Prostor nije dovoljan
+                    }
+                    item = item->next;
+                }
+
+                // Dodaj tačku-zarez za razdvajanje klijenata
+                written = snprintf(ret + currentIndex, remaining, ";");
+                if (written > 0 && written < remaining) {
+                    currentIndex += written;
+                }
+                else {
+                    break; // Prostor nije dovoljan
+                }
+            }
+        }
+    }
+}
+#pragma endregion

@@ -6,6 +6,7 @@
 #include <windows.h>
 #include "../Common/queueWorkerToWorker.h"
 #include "../Common/hashtable.h"
+#include "../Common/hashtablemsg.h"
 
 extern PORT_QUEUE* queueWithClientNameMsgPorts;
 extern HASH_TABLE_MSG* nClientMSGTable;

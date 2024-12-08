@@ -132,6 +132,7 @@
     <ClCompile Include="List.cpp" />
     <ClCompile Include="ListMsg.cpp" />
     <ClCompile Include="QueueLBtoWorker.cpp" />
+    <ClCompile Include="QueueThreadPool.cpp" />
     <ClCompile Include="QueueWorkerToWorker.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -140,6 +141,7 @@
     <ClInclude Include="list.h" />
     <ClInclude Include="listmsg.h" />
     <ClInclude Include="queueLBtoWorker.h" />
+    <ClInclude Include="queueThreadPool.h" />
     <ClInclude Include="queueWorkerToWorker.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

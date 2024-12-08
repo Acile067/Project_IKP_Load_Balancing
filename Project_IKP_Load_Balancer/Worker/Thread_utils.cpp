@@ -84,10 +84,6 @@ DWORD WINAPI AcceptWorkerConnections(LPVOID lpParam)
                 printf("Failed to deserialize message\n");
             }
         }
-
-        
-
-
         closesocket(workerSocket);
     }
 }

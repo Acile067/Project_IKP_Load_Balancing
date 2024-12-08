@@ -1,7 +1,7 @@
 @echo off
 setlocal
 
-rem Definišemo putanje do izvršnih fajlova (ažurirano za x64\Release)
+rem Definišemo putanje do izvršnih fajlova (ažurirano za x64\Debug)
 set LB_EXEC=x64\Debug\Load_Balancer.exe
 set CLIENT_EXEC=x64\Debug\Client.exe
 set WORKER_EXEC=x64\Debug\Worker.exe

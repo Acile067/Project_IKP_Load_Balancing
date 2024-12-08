@@ -8,7 +8,7 @@ int is_valid_message(const char* message) {
     for (size_t i = 0; i < strlen(message); ++i) {
         char c = message[i];
 
-        if (c == '?' || c == '!' || c == ':' || c == ';') {
+        if (c == ':' || c == ';' || c == ',') {
             return 0; 
         }
 

@@ -1,7 +1,7 @@
 ﻿#include "init_resources.h"
 
 // Function to initialize all required resources
-void initialize_resources( HASH_TABLE_MSG** msgTable, QUEUE** msgQueue, PORT_QUEUE** portQueue) {
+void initialize_resources( HASH_TABLE_MSG** msgTable, QUEUE** msgQueue, PORT_QUEUE** portQueue, THREAD_QUEUE** threadPoolQueue) {
 
     // Initialize message hash table
     *msgTable = init_hash_table_msg();
@@ -12,10 +12,12 @@ void initialize_resources( HASH_TABLE_MSG** msgTable, QUEUE** msgQueue, PORT_QUE
     // Inicijalizacija reda sa portovima
     *portQueue = init_port_queue(15); // Kapacitet može biti dinamičan
 
+    *threadPoolQueue = init_thread_queue(20);
+
     printf("Resources initialized successfully.\n");
 }
 
-void free_resources(HASH_TABLE_MSG** msgTable, QUEUE** msgQueue, PORT_QUEUE** portQueue) {
+void free_resources(HASH_TABLE_MSG** msgTable, QUEUE** msgQueue, PORT_QUEUE** portQueue, THREAD_QUEUE** threadPoolQueue) {
 
     // Free message hash table
     if (msgTable != NULL && *msgTable != NULL) {
@@ -34,6 +36,11 @@ void free_resources(HASH_TABLE_MSG** msgTable, QUEUE** msgQueue, PORT_QUEUE** po
     if (portQueue != NULL && *portQueue != NULL) {
         delete_port_queue(*portQueue);
         *portQueue = NULL;
+    }
+
+    if (threadPoolQueue != NULL && *threadPoolQueue != NULL) {
+        delete_thread_queue(*threadPoolQueue);
+        *threadPoolQueue = NULL;
     }
 
     printf("Resources freed successfully.\n");

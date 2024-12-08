@@ -9,10 +9,12 @@
 #include "init_resources.h"
 #include "networking_utils.h"
 #include "thread_utils.h"
+#include "../Common/queueThreadPool.h"
 
 HASH_TABLE_MSG* nClientMSGTable = NULL;
 QUEUE* nClientMsgsQueue = NULL;
 PORT_QUEUE* queueWithClientNameMsgPorts = NULL;
+THREAD_QUEUE* threadPoolQueue = NULL;
 
 int main()
 {
@@ -20,7 +22,9 @@ int main()
 
     initialize_resources(&nClientMSGTable, 
                          &nClientMsgsQueue, 
-                         &queueWithClientNameMsgPorts);                                 //From: init_resources.h
+                         &queueWithClientNameMsgPorts,
+                         &threadPoolQueue
+                                                    );                                 //From: init_resources.h
 
     if (initialize_worker_sockets(&workerSockets, "127.0.0.1", 5059) != 0) {            //From: worker_socket.h
         fprintf(stderr, "Failed to initialize worker sockets.\n");
@@ -41,60 +45,69 @@ int main()
         return -1;
     }
 
-    HANDLE hThread;
-    HANDLE hWorkerConnectionThread;
-    HANDLE hWorkerConnectToWorkersThread;
+    HANDLE threads[6];
 
-    // Kreiranje niti i prosleđivanje socket-a kao parametra
-    hThread = CreateThread(
-        NULL,                   // Default security attributes
-        0,                      // Default stack size
-        ProcessLBMessage,       // Funkcija niti
-        &workerSockets.connectionSocket,          // Parametar niti (pokazivač na socket)
-        0,                      // Default creation flags
-        NULL                    // ID niti
+    // Kreiranje glavnih niti
+    threads[0] = CreateThread(
+        NULL,
+        0,
+        ProcessLBMessage,
+        &workerSockets.connectionSocket,
+        0,
+        NULL
     );
 
-    if (hThread == NULL) {
+    if (threads[0] == NULL) {
         printf("Failed to create thread: %d\n", GetLastError());
         return -1;
     }
 
-    hWorkerConnectionThread = CreateThread(
-        NULL, 
-        0, 
-        AcceptWorkerConnections, 
-        &workerSockets.listeningSocket, 
-        0, 
-        NULL);
+    threads[1] = CreateThread(
+        NULL,
+        0,
+        AcceptWorkerConnections,
+        &workerSockets.listeningSocket,
+        0,
+        NULL
+    );
 
-    if (hWorkerConnectionThread == NULL) {
+    if (threads[1] == NULL) {
         printf("Failed to create thread: %d\n", GetLastError());
         return -1;
     }
 
-    hWorkerConnectToWorkersThread = CreateThread(
+    threads[2] = CreateThread(
         NULL,
         0,
         ConnectToWorkersAndSendMsg,
         &workerSockets.listeningPort,
         0,
-        NULL);
+        NULL
+    );
 
-    if (hWorkerConnectToWorkersThread == NULL) {
+    if (threads[2] == NULL) {
         printf("Failed to create thread: %d\n", GetLastError());
         return -1;
     }
 
-    WaitForSingleObject(hThread, INFINITE);
-    WaitForSingleObject(hWorkerConnectionThread, INFINITE);
-    WaitForSingleObject(hWorkerConnectToWorkersThread, INFINITE);
+    // Kreiranje 3 dodatne niti za `ProcessPortTask`
+    for (int i = 3; i < 6; i++) {
+        threads[i] = CreateThread(NULL, 0, ProcessPortTask, NULL, 0, NULL);
+        if (threads[i] == NULL) {
+            printf("Failed to create thread %d: %d\n", i, GetLastError());
+            return -1;
+        }
+    }
 
-    CloseHandle(hThread);
-    CloseHandle(hWorkerConnectionThread);
-    CloseHandle(hWorkerConnectToWorkersThread);
+    // Čekanje na sve niti
+    WaitForMultipleObjects(6, threads, TRUE, INFINITE);
 
-    free_resources(&nClientMSGTable, &nClientMsgsQueue, &queueWithClientNameMsgPorts);                                //From: init_resources.h
+    // Zatvaranje handle-ova za sve niti
+    for (int i = 0; i < 6; i++) {
+        CloseHandle(threads[i]);
+    }
+
+    free_resources(&nClientMSGTable, &nClientMsgsQueue, &queueWithClientNameMsgPorts, &threadPoolQueue);                //From: init_resources.h
     cleanup_worker_sockets(&workerSockets);
     return 0;
 }

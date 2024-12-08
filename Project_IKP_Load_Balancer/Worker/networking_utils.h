@@ -56,6 +56,5 @@ int deserialize_combined_data_structure(char* buffer, int bufferSize, CombinedDa
 void receive_combined_data(SOCKET serverSocket);
 int serialize_message(const ClientMessage* message, char** buffer, int* size);
 int deserialize_message(const char* buffer, ClientMessage* message);
-void ProcessPort(uint16_t targetPort, uint16_t yourPort, PORT_QUEUEELEMENT* dequeuedElement);
 
 #endif // NETWORKING_UTILS_H

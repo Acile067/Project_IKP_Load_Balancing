@@ -3,6 +3,7 @@
 
 extern PORT_QUEUE* queueWithClientNameMsgPorts;
 extern HASH_TABLE_MSG* nClientMSGTable;
+extern THREAD_QUEUE* threadPoolQueue;
 
 DWORD WINAPI ProcessLBMessage(LPVOID lpParam)
 {
@@ -100,7 +101,18 @@ DWORD WINAPI ConnectToWorkersAndSendMsg(LPVOID lpParam)
 
             for (int i = 0; i < dequeuedElement->numPorts; i++)
             {
-                ProcessPort(dequeuedElement->ports[i], yourPort, dequeuedElement);
+                if (dequeuedElement->ports[i] == yourPort)
+                {
+                    continue;
+                }
+
+
+                THREAD_QUEUEELEMENT* element = create_thread_queue_element(dequeuedElement->clientName, dequeuedElement->data, dequeuedElement->ports[i]);
+                enqueue_thread_queue(threadPoolQueue, element);
+
+                print_thread_queue(threadPoolQueue);
+                
+                //ProcessPort(dequeuedElement->ports[i], yourPort, dequeuedElement);
             }
 
             // Oslobađanje memorije zauzete redom
@@ -108,4 +120,71 @@ DWORD WINAPI ConnectToWorkersAndSendMsg(LPVOID lpParam)
         }
         Sleep(1000);
     }
+}
+
+DWORD WINAPI ProcessPortTask(LPVOID lpParam) {
+    while (1) {
+        // Proveri da li u redu ima elemenata za obradu
+        if (threadPoolQueue->currentSize > 0) {
+            THREAD_QUEUEELEMENT* task = dequeue_thread_queue(threadPoolQueue);
+
+            if (task == NULL) {
+                continue; // Ako je red prazan (teoretski nemoguće zbog provere, ali dodatna sigurnost)
+            }
+
+            // Procesiranje porta i poruke
+            SOCKET workerSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+            if (workerSocket == INVALID_SOCKET) {
+                printf("Failed to create socket for port: %u\n", task->targetPort);
+                free(task);
+                continue;
+            }
+
+            struct sockaddr_in workerAddr;
+            workerAddr.sin_family = AF_INET;
+            workerAddr.sin_port = htons(task->targetPort);
+            workerAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+            // Povezivanje sa worker-om
+            if (connect(workerSocket, (struct sockaddr*)&workerAddr, sizeof(workerAddr)) == SOCKET_ERROR) {
+                printf("Failed to connect to worker at port: %u\n", task->targetPort);
+                closesocket(workerSocket);
+                free(task);
+                continue;
+            }
+
+            printf("Connected to worker at port: %u\n", task->targetPort);
+
+            // Slanje poruke
+            ClientMessage message;
+            message.clientName = task->clientName;
+            message.data = task->data;
+
+            char* serializedMessage;
+            int messageSize;
+
+            if (serialize_message(&message, &serializedMessage, &messageSize) == 0) {
+                if (send(workerSocket, serializedMessage, messageSize, 0) == SOCKET_ERROR) {
+                    printf("Failed to send message to worker at port: %u\n", task->targetPort);
+                }
+                else {
+                    printf("Message sent to worker at port: %u\n", task->targetPort);
+                }
+                free(serializedMessage);
+            }
+            else {
+                printf("Failed to serialize message for port: %u\n", task->targetPort);
+            }
+
+            // Zatvaranje socket-a nakon poruke
+            closesocket(workerSocket);
+
+            // Oslobađanje memorije zauzete zadatkom
+            free(task);
+        }
+        else {
+            Sleep(500); // Pauza pre sledeće provere
+        }
+    }
+    return 0;
 }

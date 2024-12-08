@@ -8,7 +8,7 @@
 #include "networking_utils.h"
 #include "thread_utils.h"
 #include "init_resources.h"
-#include "../Common/queueThreadPool.h"
+
 
 #define PORT 5059
 #define BACKLOG 20
@@ -23,44 +23,7 @@ QUEUEELEMENT* dequeued;
 
 
 int main()
-{
-    //////////////////////////
-
-    // 1. Inicijalizacija reda sa kapacitetom 5
-    THREAD_QUEUE* queue = init_thread_queue(5);
-
-    // 2. Kreiranje dva elementa
-    THREAD_QUEUEELEMENT* element1 = create_thread_queue_element("Client1", "Data1", 8080);
-    THREAD_QUEUEELEMENT* element2 = create_thread_queue_element("Client2", "Data2", 9090);
-
-    // 3. Dodavanje elemenata u red
-    enqueue_thread_queue(queue, element1);
-    enqueue_thread_queue(queue, element2);
-
-    // 4. Ispis sadržaja reda
-    cout << "Sadržaj reda nakon dodavanja elemenata:" << endl;
-    print_thread_queue(queue);
-
-    // 5. Uklanjanje jednog elementa iz reda
-    THREAD_QUEUEELEMENT* dequeuedElement = dequeue_thread_queue(queue);
-
-    // Provera i ispis uklonjenog elementa
-    if (dequeuedElement) {
-        cout << "Dequeued element:" << endl;
-        cout << "ClientName: " << dequeuedElement->clientName
-            << ", Data: " << dequeuedElement->data
-            << ", TargetPort: " << dequeuedElement->targetPort << endl;
-    }
-
-    // 6. Ispis sadržaja reda nakon uklanjanja
-    cout << "Sadrzaj reda nakon dequeue operacije:" << endl;
-    print_thread_queue(queue);
-
-    // 7. Oslobađanje memorije za red i elemente
-    delete_thread_queue(queue);
-
-    /////////////////////////
-
+{  
     ServerSocket server;
 
     initialize_worker_array_critical_section();
@@ -93,37 +56,43 @@ int main()
     params.maxFd = (int)server.socket;
 
     // Create the thread for handling connections
-    HANDLE threadHandle = CreateThread(
-        NULL,                  // Default security attributes
-        0,                     // Default stack size
+    // Niz za handle-ove niti
+    HANDLE threads[3];
+
+    // Kreiranje niti za prihvatanje konekcija
+    threads[0] = CreateThread(
+        NULL,                   // Default security attributes
+        0,                      // Default stack size
         AcceptConnectionsThread, // Thread function
-        &params,               // Thread parameters
-        0,                     // Default creation flags
-        NULL                   // No thread ID needed
+        &params,                // Thread parameters
+        0,                      // Default creation flags
+        NULL                    // No thread ID needed
     );
 
-    if (threadHandle == NULL) {
+    if (threads[0] == NULL) {
         fprintf(stderr, "Failed to create new connections thread\n");
-        cleanup_server_socket(&server);                                 //From: load_balancer_socket.h
+        cleanup_server_socket(&server); // From: load_balancer_socket.h
         return EXIT_FAILURE;
     }
 
-    HANDLE hThread = CreateThread(
-        NULL, 
-        0, 
-        ProcessMessagesThread, 
-        NULL, 
-        0, 
+    // Kreiranje niti za procesiranje poruka
+    threads[1] = CreateThread(
+        NULL,
+        0,
+        ProcessMessagesThread,
+        NULL,
+        0,
         NULL
     );
 
-    if (hThread == NULL) {
-        fprintf(stderr, "Failed to create msg processor thread\n");
-        cleanup_server_socket(&server);                                 //From: load_balancer_socket.h
+    if (threads[1] == NULL) {
+        fprintf(stderr, "Failed to create message processor thread\n");
+        cleanup_server_socket(&server); // From: load_balancer_socket.h
         return EXIT_FAILURE;
     }
 
-    HANDLE h2Thread = CreateThread(
+    // Kreiranje niti za slanje poruka radnicima (Round Robin)
+    threads[2] = CreateThread(
         NULL,
         0,
         SendMassagesToWorkersRoundRobin,
@@ -132,23 +101,21 @@ int main()
         NULL
     );
 
-    if (h2Thread == NULL) {
-        fprintf(stderr, "Failed to create msg processor thread\n");
-        cleanup_server_socket(&server);                                 //From: load_balancer_socket.h
+    if (threads[2] == NULL) {
+        fprintf(stderr, "Failed to create worker message thread\n");
+        cleanup_server_socket(&server); // From: load_balancer_socket.h
         return EXIT_FAILURE;
     }
 
     printf("Server is running. Press Ctrl+C to terminate.\n");
 
-    // Wait for the thread to finish (infinite wait for this example)
-    WaitForSingleObject(threadHandle, INFINITE);
-    WaitForSingleObject(hThread, INFINITE);
-    WaitForSingleObject(h2Thread, INFINITE);
+    // Čekanje na sve niti
+    WaitForMultipleObjects(3, threads, TRUE, INFINITE);
 
-    // Cleanup resources
-    CloseHandle(threadHandle);
-    CloseHandle(hThread);
-    CloseHandle(h2Thread);
+    // Oslobađanje handle-ova za sve niti
+    for (int i = 0; i < 3; i++) {
+        CloseHandle(threads[i]);
+    }
 
     cleanup_worker_array_critical_section();
 

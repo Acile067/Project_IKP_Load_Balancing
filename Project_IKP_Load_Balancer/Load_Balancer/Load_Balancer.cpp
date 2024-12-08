@@ -8,6 +8,7 @@
 #include "networking_utils.h"
 #include "thread_utils.h"
 #include "init_resources.h"
+#include "../Common/queueThreadPool.h"
 
 #define PORT 5059
 #define BACKLOG 20
@@ -23,6 +24,43 @@ QUEUEELEMENT* dequeued;
 
 int main()
 {
+    //////////////////////////
+
+    // 1. Inicijalizacija reda sa kapacitetom 5
+    THREAD_QUEUE* queue = init_thread_queue(5);
+
+    // 2. Kreiranje dva elementa
+    THREAD_QUEUEELEMENT* element1 = create_thread_queue_element("Client1", "Data1", 8080);
+    THREAD_QUEUEELEMENT* element2 = create_thread_queue_element("Client2", "Data2", 9090);
+
+    // 3. Dodavanje elemenata u red
+    enqueue_thread_queue(queue, element1);
+    enqueue_thread_queue(queue, element2);
+
+    // 4. Ispis sadržaja reda
+    cout << "Sadržaj reda nakon dodavanja elemenata:" << endl;
+    print_thread_queue(queue);
+
+    // 5. Uklanjanje jednog elementa iz reda
+    THREAD_QUEUEELEMENT* dequeuedElement = dequeue_thread_queue(queue);
+
+    // Provera i ispis uklonjenog elementa
+    if (dequeuedElement) {
+        cout << "Dequeued element:" << endl;
+        cout << "ClientName: " << dequeuedElement->clientName
+            << ", Data: " << dequeuedElement->data
+            << ", TargetPort: " << dequeuedElement->targetPort << endl;
+    }
+
+    // 6. Ispis sadržaja reda nakon uklanjanja
+    cout << "Sadrzaj reda nakon dequeue operacije:" << endl;
+    print_thread_queue(queue);
+
+    // 7. Oslobađanje memorije za red i elemente
+    delete_thread_queue(queue);
+
+    /////////////////////////
+
     ServerSocket server;
 
     initialize_worker_array_critical_section();

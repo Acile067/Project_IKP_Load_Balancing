@@ -120,7 +120,7 @@ DWORD WINAPI ProcessMessagesThread(LPVOID lpParam) {
 DWORD WINAPI SendMassagesToWorkersRoundRobin(LPVOID lpParam) {
     while (1)
     {
-        if (nClientMsgsQueue->currentSize > 0)
+        if (nClientMsgsQueue != nullptr && nClientMsgsQueue->currentSize > 0)
         {
             dequeued = dequeue(nClientMsgsQueue);
 

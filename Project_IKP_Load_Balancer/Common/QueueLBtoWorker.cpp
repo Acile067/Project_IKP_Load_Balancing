@@ -116,6 +116,7 @@ int get_capacity_queue(QUEUE* q) {
 }
 
 // Briše red i oslobađa memoriju
+// Briše red i oslobađa memoriju
 void delete_queue(QUEUE* q) {
     if (q == NULL) {
         return;  // Ako je pokazivač NULL, nema šta da se briše
@@ -126,14 +127,15 @@ void delete_queue(QUEUE* q) {
     // Oslobađa memoriju za elemente reda
     free(q->elements);
 
-    // Oslobađa memoriju za samu strukturu reda
-    free(q);
-
     LeaveCriticalSection(&q->cs);  // Odlazi iz kritične sekcije
 
     // Briše kritičnu sekciju
     DeleteCriticalSection(&q->cs);
+
+    // Oslobađa memoriju za samu strukturu reda
+    free(q);
 }
+
 
 // Kreira i inicijalizuje QUEUEELEMENT
 QUEUEELEMENT* create_queue_element(const char* clientName, const char* data) {

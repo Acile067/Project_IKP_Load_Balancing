@@ -110,7 +110,8 @@ int main()
     printf("Server is running. Press Ctrl+C to terminate.\n");
 
     // Čekanje na sve niti
-    WaitForMultipleObjects(3, threads, TRUE, INFINITE);
+    //WaitForMultipleObjects(3, threads, TRUE, INFINITE);
+    WaitForMultipleObjects(3, threads, TRUE, 180000);
 
     // Oslobađanje handle-ova za sve niti
     for (int i = 0; i < 3; i++) {
